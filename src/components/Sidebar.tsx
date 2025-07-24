@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -80,17 +81,18 @@ export default function Sidebar() {
     const fetchSettings = async () => {
       try {
         const response = await fetch('/api/settings');
-        if (response.ok) {
-          const data = await response.json();
-          const settingsMap = data.reduce((acc: any, item: any) => {
-            acc[item.key] = item.value;
-            return acc;
-          }, {});
-          setSettings({
-            company_name: settingsMap.company_name || 'ORT Admin',
-            company_logo: settingsMap.company_logo || ''
-          });
-        }
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.error);
+
+        // Находим нужные настройки из массива
+        const companyName = data.find((setting: { key: string }) => setting.key === 'company_name')?.value || '';
+        const companyLogo = data.find((setting: { key: string }) => setting.key === 'company_logo')?.value || '';
+
+        setSettings({
+          company_name: companyName,
+          company_logo: companyLogo
+        });
       } catch (error) {
         console.error('Failed to fetch settings:', error);
       }

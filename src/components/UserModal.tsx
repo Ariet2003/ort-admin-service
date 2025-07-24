@@ -360,4 +360,4 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
       </motion.div>
     </AnimatePresence>
   );
-} 
+}

@@ -14,4 +14,29 @@ export async function GET() {
       { status: 500 }
     );
   }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const updates = await request.json();
+
+    // Обновляем каждую настройку
+    const updatePromises = Object.entries(updates).map(([key, value]) =>
+      prisma.setting.upsert({
+        where: { key },
+        update: { value: value as string },
+        create: { key, value: value as string },
+      })
+    );
+
+    await Promise.all(updatePromises);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Failed to update settings:', error);
+    return NextResponse.json(
+      { error: 'Failed to update settings' },
+      { status: 500 }
+    );
+  }
 } 
