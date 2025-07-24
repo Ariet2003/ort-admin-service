@@ -16,6 +16,7 @@
     "bcryptjs": "^2.4.3",
     "framer-motion": "^12.23.6",
     "jsonwebtoken": "^9.0.2",
+    "libphonenumber-js": "^1.12.10",
     "next": "15.3.5",
     "prisma": "^5.10.0",
     "react": "^19.0.0",
