@@ -21,6 +21,17 @@ async function main() {
   })
 
   console.log({ admin })
+
+  // Создаем базовые настройки
+  const settings = await prisma.setting.createMany({
+    skipDuplicates: true,
+    data: [
+      { key: 'company_name', value: 'Youcan' },
+      { key: 'company_logo', value: 'https://i.ibb.co/nqxTTCMs/logo.png' },
+    ],
+  })
+
+  console.log({ settings })
 }
 
 main()
