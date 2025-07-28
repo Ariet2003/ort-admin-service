@@ -314,7 +314,7 @@ export default function UsersPage() {
         <select
           value={selectedRole}
           onChange={(e) => setSelectedRole(e.target.value as UserRole | '')}
-          className="px-4 py-2 rounded-lg border border-[#667177] bg-[#19242a] text-white focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
+          className="px-4 py-2 rounded-lg border border-[#667177] bg-[#19242a] text-white text-xs focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
         >
           <option value="">Все роли</option>
           {Object.entries(roleLabels).map(([role, label]) => (
@@ -323,17 +323,18 @@ export default function UsersPage() {
             </option>
           ))}
         </select>
-
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as SortOption)}
-          className="px-4 py-2 rounded-lg border border-[#667177] bg-[#19242a] text-white focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
+        <button
+          className={`px-4 py-2 rounded-lg border border-[#667177] bg-[#19242a] text-white text-xs hover:bg-[#161b1e] transition-colors ${sortBy.startsWith('fullname') ? 'bg-[#00ff41] text-[#161b1e]' : ''}`}
+          onClick={() => setSortBy(sortBy === 'fullname_asc' ? 'fullname_desc' : 'fullname_asc')}
         >
-          <option value="fullname_asc">ФИО (А-Я)</option>
-          <option value="fullname_desc">ФИО (Я-А)</option>
-          <option value="points_desc">Баллы (по убыванию)</option>
-          <option value="points_asc">Баллы (по возрастанию)</option>
-        </select>
+          Сортировать по ФИО {sortBy.startsWith('fullname') && (sortBy.endsWith('asc') ? '▲' : '▼')}
+        </button>
+        <button
+          className={`px-4 py-2 rounded-lg border border-[#667177] bg-[#19242a] text-white text-xs hover:bg-[#161b1e] transition-colors ${sortBy.startsWith('points') ? 'bg-[#00ff41] text-[#161b1e]' : ''}`}
+          onClick={() => setSortBy(sortBy === 'points_asc' ? 'points_desc' : 'points_asc')}
+        >
+          Сортировать по баллам {sortBy.startsWith('points') && (sortBy.endsWith('asc') ? '▲' : '▼')}
+        </button>
       </div>
 
       {/* Таблица пользователей */}

@@ -33,6 +33,14 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Новые связи для пробных тестов и вопросов
+  adminCreatedTests   TrialTest[]          @relation("AdminCreatedTests")
+  trainerCreatedTests TrialTestTrainer[]
+  createdQuestions    TrialTestQuestion[]  @relation("CreatedQuestions")
+
+  // Связь с предметами для преподавателей
+  subjects            TrainerSubject[]
+
   @@map("users")
 }
 
@@ -44,4 +52,97 @@ model Setting {
   updatedAt DateTime @updatedAt
   
   @@map("settings")
+}
+
+model TrialTest {
+  id                Int      @id @default(autoincrement())
+  title             String
+  description       String
+  type              TrialTestType
+  status            TrialTestStatus
+  creatorAdminId    Int?    @map("creator_admin_id")
+  durationMinutes   Int     @map("duration_minutes")
+  totalQuestions    Int     @map("total_questions")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  creatorAdmin      User?   @relation("AdminCreatedTests", fields: [creatorAdminId], references: [id])
+  questions         TrialTestQuestion[]
+  trainers          TrialTestTrainer[]
+
+  @@map("trial_tests")
+}
+
+enum TrialTestType {
+  free
+  paid
+}
+
+enum TrialTestStatus {
+  created
+  in_progress
+  ready
+}
+
+model TrialTestQuestion {
+  id             Int      @id @default(autoincrement())
+  trialTestId    Int      @map("trial_test_id")
+  questionText   String   @map("question_text")
+  imageUrl       String?  @map("image_url")
+  optionA        String   @map("option_a")
+  optionB        String   @map("option_b")
+  optionC        String   @map("option_c")
+  optionD        String   @map("option_d")
+  optionE        String   @map("option_e")
+  subjectType    SubjectType @map("subject_type")
+  correctOption  CorrectOption @map("correct_option")
+  creatorId      Int      @map("creator_id")
+  explanation    String?
+  points         Int
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  trialTest      TrialTest @relation(fields: [trialTestId], references: [id])
+  creator        User      @relation("CreatedQuestions", fields: [creatorId], references: [id])
+
+  @@map("trial_test_questions")
+}
+
+enum SubjectType {
+  math1
+  math2
+  analogy
+  reading
+  grammar
+}
+
+enum CorrectOption {
+  a
+  b
+  c
+  d
+  e
+}
+
+model TrainerSubject {
+  id          Int         @id @default(autoincrement())
+  trainerId   Int         @map("trainer_id")
+  subjectType SubjectType @map("subject_type")
+
+  trainer     User        @relation(fields: [trainerId], references: [id])
+
+  @@unique([trainerId, subjectType])
+  @@map("trainer_subjects")
+}
+
+model TrialTestTrainer {
+  id           Int       @id @default(autoincrement())
+  trialTestId  Int       @map("trial_test_id")
+  trainerId    Int       @map("trainer_id")
+
+  trialTest    TrialTest @relation(fields: [trialTestId], references: [id])
+  trainer      User      @relation(fields: [trainerId], references: [id])
+
+  @@unique([trialTestId, trainerId])
+  @@map("trial_test_trainers")
 }
