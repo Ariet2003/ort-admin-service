@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const mockTests = [
   {
@@ -31,6 +31,11 @@ const mockTests = [
 const typeLabels: Record<string, string> = { free: 'Бесплатный', paid: 'Платный' };
 const statusLabels: Record<string, string> = { created: 'Создан', in_progress: 'В работе', ready: 'Готов' };
 const typeColors: Record<string, string> = { free: 'text-green-400', paid: 'text-blue-400' };
+const statusColors: Record<string, string> = {
+  created: 'text-yellow-400',
+  in_progress: 'text-blue-400',
+  ready: 'text-green-400',
+};
 
 const EditIcon = ({ className = "" }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -63,15 +68,27 @@ const TestIcon = ({ className = "" }) => (
   </svg>
 );
 
+// Для отображения предметов тренера
+const trainerSubjectLabels: Record<string, string> = {
+  language: 'Язык',
+  math: 'Математик',
+};
+
 export default function TestPage() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [sort, setSort] = useState('createdAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
 
   // Модалка создания теста
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingTestId, setEditingTestId] = useState<number | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [testToDelete, setTestToDelete] = useState<any | null>(null);
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -80,10 +97,30 @@ export default function TestPage() {
     totalQuestions: '',
     trainers: [] as string[],
   });
-  const [trainers, setTrainers] = useState<{id: number, fullname: string}[]>([]);
+  type Trainer = { id: number; fullname: string; subjects: { subjectType: string }[] };
+  const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [loadingTrainers, setLoadingTrainers] = useState(false);
   const [trainerSearch, setTrainerSearch] = useState('');
   const [showTrainerDropdown, setShowTrainerDropdown] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const trainerSelectRef = useRef<HTMLDivElement>(null);
+
+  const [tests, setTests] = useState<any[]>([]);
+  const [loadingTests, setLoadingTests] = useState(true);
+  const [errorTests, setErrorTests] = useState<string | null>(null);
+  const [selectedTest, setSelectedTest] = useState<any | null>(null);
+
+  useEffect(() => {
+    setLoadingTests(true);
+    fetch('/api/trial-tests')
+      .then(res => res.json())
+      .then(data => {
+        setTests(data.tests || []);
+        setErrorTests(null);
+      })
+      .catch(() => setErrorTests('Ошибка загрузки тестов'))
+      .finally(() => setLoadingTests(false));
+  }, []);
 
   useEffect(() => {
     if (isModalOpen) {
@@ -95,6 +132,17 @@ export default function TestPage() {
     }
   }, [isModalOpen]);
 
+  useEffect(() => {
+    if (!showTrainerDropdown) return;
+    const handleClick = (e: MouseEvent) => {
+      if (trainerSelectRef.current && !trainerSelectRef.current.contains(e.target as Node)) {
+        setShowTrainerDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showTrainerDropdown]);
+
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, multiple, options } = e.target as HTMLSelectElement;
     if (multiple) {
@@ -105,7 +153,108 @@ export default function TestPage() {
     }
   };
 
-  const filtered = mockTests
+  const handleEdit = (test: any) => {
+    setForm({
+      title: test.title,
+      description: test.description,
+      type: test.type,
+      durationMinutes: String(test.durationMinutes),
+      totalQuestions: String(test.totalQuestions),
+      trainers: test.trainers?.map((t: any) => String(t.trainer.id)) || [],
+    });
+    setEditingTestId(test.id);
+    setIsEditMode(true);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (test: any) => {
+    setTestToDelete(test);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!testToDelete) return;
+    
+    try {
+      const response = await fetch(`/api/trial-tests/${testToDelete.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Ошибка при удалении теста');
+      }
+
+      // Закрываем модальное окно и обновляем список
+      setDeleteConfirmOpen(false);
+      setTestToDelete(null);
+      fetchTests();
+    } catch (error: any) {
+      console.error('Ошибка удаления:', error);
+      // Можно добавить уведомление об ошибке
+    }
+  };
+
+  const fetchTests = async () => {
+    try {
+      setLoadingTests(true);
+      const res = await fetch('/api/trial-tests');
+      if (!res.ok) throw new Error('Ошибка загрузки тестов');
+      const data = await res.json();
+      setTests(data.tests || []);
+    } catch (err: any) {
+      setErrorTests(err.message);
+    } finally {
+      setLoadingTests(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+
+    try {
+      const url = isEditMode ? `/api/trial-tests/${editingTestId}` : '/api/trial-tests';
+      const method = isEditMode ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...form,
+          durationMinutes: Number(form.durationMinutes),
+          totalQuestions: Number(form.totalQuestions),
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Ошибка при сохранении теста');
+      }
+
+      // Закрываем модальное окно и сбрасываем состояние
+      setIsModalOpen(false);
+      setIsEditMode(false);
+      setEditingTestId(null);
+      setForm({
+        title: '',
+        description: '',
+        type: 'free',
+        durationMinutes: '150',
+        totalQuestions: '210',
+        trainers: [],
+      });
+
+      // Обновляем список тестов
+      fetchTests();
+    } catch (error: any) {
+      setFormError(error.message);
+    }
+  };
+
+  const filtered = (tests || [])
     .filter(t =>
       (!search || t.title.toLowerCase().includes(search.toLowerCase()) || t.description.toLowerCase().includes(search.toLowerCase())) &&
       (!typeFilter || t.type === typeFilter) &&
@@ -124,6 +273,9 @@ export default function TestPage() {
       }
       return 0;
     });
+
+  const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const totalPages = Math.ceil(filtered.length / pageSize);
 
   return (
     <div className="space-y-6">
@@ -148,7 +300,20 @@ export default function TestPage() {
         </div>
         <button
           className="px-6 py-2.5 rounded-lg bg-[#00ff41] text-[#161b1e] font-medium hover:bg-[#00ff41]/90 transition-colors whitespace-nowrap"
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setIsEditMode(false);
+            setEditingTestId(null);
+            setForm({
+              title: '',
+              description: '',
+              type: 'free',
+              durationMinutes: '',
+              totalQuestions: '',
+              trainers: [],
+            });
+            setTrainerSearch('');
+            setIsModalOpen(true);
+          }}
         >
           Добавить
         </button>
@@ -156,10 +321,18 @@ export default function TestPage() {
 
       {/* Модальное окно создания теста */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-[#19242a] rounded-lg w-full max-w-md p-6 space-y-2" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-bold text-white mb-4">Создать пробный тест</h2>
-            <form className="space-y-4">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={() => setIsModalOpen(false)}
+        >
+          <div
+            className="bg-[#19242a] rounded-lg w-full max-w-md p-6 space-y-2"
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-bold text-white mb-4">
+              {isEditMode ? 'Редактировать пробный тест' : 'Создать пробный тест'}
+            </h2>
+            <form className="space-y-4" onSubmit={handleSubmit}>
               <div>
                 <label className="block text-sm font-medium text-[#667177] mb-1">Название теста</label>
                 <input
@@ -226,7 +399,7 @@ export default function TestPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#667177] mb-1">Тренеры</label>
-                <div className="relative">
+                <div className="relative" ref={trainerSelectRef}>
                   <input
                     type="text"
                     placeholder="Поиск тренера..."
@@ -254,14 +427,17 @@ export default function TestPage() {
                           .map(tr => (
                             <div
                               key={tr.id}
-                              className="px-4 py-2 cursor-pointer hover:bg-[#232f36] text-white"
+                              className="px-4 py-2 cursor-pointer hover:bg-[#232f36] text-white flex items-center gap-2"
                               onClick={() => {
                                 setForm(f => ({ ...f, trainers: [...f.trainers, String(tr.id)] }));
                                 setTrainerSearch('');
                                 setShowTrainerDropdown(false);
                               }}
                             >
-                              {tr.fullname}
+                              <span>{tr.fullname}</span>
+                              {tr.subjects && tr.subjects.length > 0 && (
+                                <span className="text-xs text-[#00ff41]">— {tr.subjects.map(s => trainerSubjectLabels[s.subjectType] || s.subjectType).join(', ')}</span>
+                              )}
                             </div>
                           ))
                       )}
@@ -274,8 +450,11 @@ export default function TestPage() {
                         const tr = trainers.find(t => String(t.id) === id);
                         if (!tr) return null;
                         return (
-                          <span key={id} className="flex items-center bg-[#232f36] text-white px-3 py-1 rounded-full text-xs">
+                          <span key={id} className="flex items-center bg-[#232f36] text-white px-3 py-1 rounded-full text-xs gap-2">
                             {tr.fullname}
+                            {tr.subjects && tr.subjects.length > 0 && (
+                              <span className="text-[#00ff41]">({tr.subjects.map(s => trainerSubjectLabels[s.subjectType] || s.subjectType).join(', ')})</span>
+                            )}
                             <button
                               type="button"
                               className="ml-2 text-[#00ff41] hover:text-red-400"
@@ -290,6 +469,9 @@ export default function TestPage() {
                   )}
                 </div>
               </div>
+              {formError && (
+                <div className="p-2 rounded bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">{formError}</div>
+              )}
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -301,7 +483,7 @@ export default function TestPage() {
                 <button
                   type="submit"
                   className="flex-1 px-4 py-2 rounded-lg bg-[#00ff41] text-[#161b1e] font-medium hover:bg-[#00ff41]/90 transition-colors"
-                  disabled
+                  disabled={form.trainers.length < 2}
                 >
                   Сохранить
                 </button>
@@ -352,42 +534,56 @@ export default function TestPage() {
           <table className="w-full text-sm text-left">
             <thead>
               <tr className="border-b border-[#667177]/10 text-[#667177]">
-                <th className="px-4 py-3">Название</th>
-                <th className="px-4 py-3">Описание</th>
-                <th className="px-4 py-3">Тип</th>
-                <th className="px-4 py-3">Статус</th>
-                <th className="px-4 py-3">Вопросов</th>
-                <th className="px-4 py-3">Длительность</th>
-                <th className="px-4 py-3">Дата создания</th>
-                <th className="px-4 py-3 w-20 text-right">Действия</th>
+                <th className="px-4 py-3 text-center">Название</th>
+                <th className="px-4 py-3 text-center">Тип</th>
+                <th className="px-4 py-3 text-center">Статус</th>
+                <th className="px-4 py-3 text-center">Вопросов</th>
+                <th className="px-4 py-3 text-center">Длительность</th>
+                <th className="px-4 py-3 text-center">Дата создания</th>
+                <th className="px-4 py-3 w-20 text-center">Действия</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {loadingTests ? (
+                <tr><td colSpan={7} className="text-center text-[#667177] py-8">Загрузка...</td></tr>
+              ) : errorTests ? (
+                <tr><td colSpan={7} className="text-center text-red-400 py-8">{errorTests}</td></tr>
+              ) : paged.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center text-[#667177] py-8">Нет пробных тестов</td>
+                  <td colSpan={7} className="text-center text-[#667177] py-8">Нет пробных тестов</td>
                 </tr>
               ) : (
-                filtered.map(test => (
-                  <tr key={test.id} className="border-b border-[#667177]/10 hover:bg-[#161b1e] transition-colors cursor-pointer">
-                    <td className="px-4 py-3 text-white font-medium">{test.title}</td>
-                    <td className="px-4 py-3 text-[#b0b8be]">{test.description}</td>
-                    <td className={`px-4 py-3 font-semibold ${typeColors[test.type]}`}>{typeLabels[test.type]}</td>
-                    <td className="px-4 py-3">{statusLabels[test.status]}</td>
+                paged.map(test => (
+                  <tr
+                    key={test.id}
+                    className="border-b border-[#667177]/10 hover:bg-[#161b1e] transition-colors cursor-pointer"
+                    onClick={() => setSelectedTest(test)}
+                  >
+                    <td className="px-4 py-3 text-white font-medium text-center">{test.title}</td>
+                    <td className={`px-4 py-3 font-semibold text-center ${typeColors[test.type]}`}>{typeLabels[test.type]}</td>
+                    <td className={`px-4 py-3 font-semibold text-center ${statusColors[test.status]}`}>{statusLabels[test.status]}</td>
                     <td className="px-4 py-3 text-center">{test.totalQuestions}</td>
                     <td className="px-4 py-3 text-center">{test.durationMinutes} мин</td>
-                    <td className="px-4 py-3 text-[#b0b8be]">{new Date(test.createdAt).toLocaleDateString()}</td>
-                    <td className="px-4 py-3 text-sm text-right">
-                      <div className="flex justify-end gap-2" onClick={e => e.stopPropagation()}>
+                    <td className="px-4 py-3 text-[#b0b8be] text-center">{new Date(test.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-sm text-center">
+                      <div className="flex justify-center gap-2" onClick={e => e.stopPropagation()}>
                         <button
                           className="p-1 text-[#00ff41] hover:text-[#00ff41]/80 transition-colors"
                           title="Изменить"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEdit(test);
+                          }}
                         >
                           <EditIcon className="w-5 h-5" />
                         </button>
                         <button
                           className="p-1 text-red-400 hover:text-red-400/80 transition-colors"
                           title="Удалить"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(test);
+                          }}
                         >
                           <DeleteIcon className="w-5 h-5" />
                         </button>
@@ -399,13 +595,131 @@ export default function TestPage() {
             </tbody>
           </table>
         </div>
-        {/* Нижний блок с количеством */}
-        <div className="px-4 py-3 border-t border-[#667177]/10 flex justify-between items-center">
-          <div className="text-sm text-[#667177]">
-            Всего: <span className="font-bold text-white">{filtered.length}</span> тест(ов)
+        {/* Пагинация */}
+        {totalPages > 1 && (
+          <div className="px-4 py-3 border-t border-[#667177]/10 flex justify-between items-center">
+            <div className="text-sm text-[#667177]">
+              Страница <span className="font-bold text-white">{page}</span> из <span className="font-bold text-white">{totalPages}</span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                className="px-3 py-1 rounded bg-[#161b1e] border border-[#667177] text-white text-xs disabled:opacity-50"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                Назад
+              </button>
+              <button
+                className="px-3 py-1 rounded bg-[#161b1e] border border-[#667177] text-white text-xs disabled:opacity-50"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                Вперёд
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Модалка подробностей теста */}
+      {selectedTest && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setSelectedTest(null)}>
+          <div className="bg-[#161b1e] rounded-2xl w-full max-w-lg p-0 overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 px-6 pt-6 pb-2 border-b border-[#232f36]">
+              <TestIcon className="w-8 h-8" />
+              <h2 className="text-2xl font-bold text-white flex-1">{selectedTest.title}</h2>
+              <button onClick={() => setSelectedTest(null)} className="text-[#667177] hover:text-red-400 text-2xl px-2">×</button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div className="flex flex-wrap gap-4 items-end">
+                <div className="flex-1 min-w-[120px]">
+                  <div className="text-[#667177] text-xs mb-1">Тип</div>
+                  <div className={`font-semibold ${typeColors[selectedTest.type]}`}>{typeLabels[selectedTest.type]}</div>
+                </div>
+                <div className="flex-1 min-w-[120px]">
+                  <div className="text-[#667177] text-xs mb-1">Статус</div>
+                  <div className={`font-semibold ${statusColors[selectedTest.status]}`}>{statusLabels[selectedTest.status]}</div>
+                </div>
+                <div className="flex-1 min-w-[120px]">
+                  <div className="text-[#667177] text-xs mb-1">Вопросов</div>
+                  <div className="text-white">{selectedTest.totalQuestions}</div>
+                </div>
+                <div className="flex-1 min-w-[120px]">
+                  <div className="text-[#667177] text-xs mb-1">Длительность</div>
+                  <div className="text-white">{selectedTest.durationMinutes} мин</div>
+                </div>
+                <div className="flex-1 min-w-[120px]">
+                  <div className="text-[#667177] text-xs mb-1">Дата создания</div>
+                  <div className="text-white">{new Date(selectedTest.createdAt).toLocaleDateString()}</div>
+                </div>
+                <div className="flex-1 min-w-[120px]">
+                  <div className="text-[#667177] text-xs mb-1">Дата обновления</div>
+                  <div className="text-white">{new Date(selectedTest.updatedAt).toLocaleDateString()}</div>
+                </div>
+              </div>
+              <div className="border-t border-[#232f36] my-2" />
+              <div>
+                <div className="text-[#667177] text-xs mb-1">Описание</div>
+                <div className="text-white whitespace-pre-line">{selectedTest.description}</div>
+              </div>
+              <div className="border-t border-[#232f36] my-2" />
+              <div className="flex flex-wrap gap-4">
+                <div className="flex-1 min-w-[180px]">
+                  <div className="text-[#667177] text-xs mb-1">Тренеры</div>
+                  <div className="text-[#00ff41]">{selectedTest.trainers && selectedTest.trainers.length > 0 ? selectedTest.trainers.map((t: any) => t.trainer.fullname).join(', ') : '—'}</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Модальное окно подтверждения удаления */}
+      {deleteConfirmOpen && testToDelete && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={() => setDeleteConfirmOpen(false)}
+        >
+          <div
+            className="bg-[#19242a] rounded-lg w-full max-w-md p-6 space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center">
+                <DeleteIcon className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Удалить тест</h3>
+                <p className="text-[#667177] text-sm">Это действие нельзя отменить</p>
+              </div>
+            </div>
+            
+            <div className="bg-[#161b1e] rounded-lg p-4 border border-[#667177]/20">
+              <p className="text-white font-medium">{testToDelete.title}</p>
+              <p className="text-[#667177] text-sm mt-1">
+                Тип: {typeLabels[testToDelete.type]} • Вопросов: {testToDelete.totalQuestions}
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmOpen(false)}
+                className="flex-1 px-4 py-2 rounded-lg border border-[#667177] text-white hover:bg-[#161b1e] transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition-colors"
+              >
+                Удалить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

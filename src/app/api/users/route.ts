@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import type { UserRole } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -15,13 +15,13 @@ export async function GET(request: Request) {
     const skip = (page - 1) * limit;
 
     // Формируем условия поиска
-    const where = {
+    const where: any = {
       AND: [
         // Поиск по fullname или username
         search ? {
           OR: [
-            { fullname: { contains: search, mode: 'insensitive' } },
-            { username: { contains: search, mode: 'insensitive' } },
+            { fullname: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
+            { username: { contains: search, mode: 'insensitive' as Prisma.QueryMode } },
           ],
         } : {},
         // Фильтр по роли
@@ -30,20 +30,20 @@ export async function GET(request: Request) {
     };
 
     // Формируем параметры сортировки
-    let orderBy = { createdAt: 'desc' as const };
+    let orderBy: any = { createdAt: 'desc' };
 
     switch (sortBy) {
       case 'points_asc':
-        orderBy = { points: 'asc' as const };
+        orderBy = { points: 'asc' };
         break;
       case 'points_desc':
-        orderBy = { points: 'desc' as const };
+        orderBy = { points: 'desc' };
         break;
       case 'fullname_asc':
-        orderBy = { fullname: 'asc' as const };
+        orderBy = { fullname: 'asc' };
         break;
       case 'fullname_desc':
-        orderBy = { fullname: 'desc' as const };
+        orderBy = { fullname: 'desc' };
         break;
     }
 
@@ -64,6 +64,11 @@ export async function GET(request: Request) {
         avatarUrl: true,
         createdAt: true,
         updatedAt: true,
+        subjects: {
+          select: {
+            subjectType: true, // TrainerSubjectType
+          },
+        },
       },
       orderBy,
       skip,

@@ -108,52 +108,52 @@ export default function SettingsPage() {
       <div>
         <div className="flex items-center gap-3 mb-2">
           <SettingsIcon className="w-8 h-8 text-[#00ff41]" />
-          <h1 className="text-xl lg:text-2xl font-bold text-white">
-            Настройки
-          </h1>
+          <h1 className="text-xl lg:text-2xl font-bold text-white">Настройки</h1>
         </div>
-        <p className="text-[#667177] mt-2 text-sm lg:text-base">
-          Управление настройками системы
-        </p>
+        <p className="text-[#667177] mt-2 text-sm lg:text-base">Управление настройками системы</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="bg-[#19242a] rounded-lg border border-[#667177]/10 p-6 space-y-6">
-          <div>
-            <h2 className="text-lg font-medium text-white mb-4">Настройки компании</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#667177] mb-1">
-                  Название компании
-                </label>
-                <input
-                  type="text"
-                  name="company_name"
-                  value={settings.company_name}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 rounded-lg border border-[#667177] bg-[#161b1e] text-white placeholder-[#667177] focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
-                  placeholder="Введите название компании"
-                />
-              </div>
+        <div className="bg-[#19242a] rounded-lg border border-[#667177]/10 overflow-hidden">
+          <div className="px-6 py-4 border-b border-[#667177]/10">
+            <h2 className="text-lg font-medium text-white">Настройки компании</h2>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-[#667177] mb-1">
+                Название компании
+              </label>
+              <input
+                type="text"
+                name="company_name"
+                value={settings.company_name}
+                onChange={handleChange}
+                className="w-full px-4 py-2 rounded-lg border border-[#667177] bg-[#161b1e] text-white placeholder-[#667177] focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
+                placeholder="Введите название компании"
+              />
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-[#667177] mb-1">
-                  URL логотипа
-                </label>
-                <input
-                  type="text"
-                  name="company_logo"
-                  value={settings.company_logo}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 rounded-lg border border-[#667177] bg-[#161b1e] text-white placeholder-[#667177] focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
-                  placeholder="Введите URL логотипа"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-[#667177] mb-1">
+                URL логотипа
+              </label>
+              <input
+                type="text"
+                name="company_logo"
+                value={settings.company_logo}
+                onChange={handleChange}
+                className="w-full px-4 py-2 rounded-lg border border-[#667177] bg-[#161b1e] text-white placeholder-[#667177] focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
+                placeholder="Введите URL логотипа"
+              />
             </div>
           </div>
+        </div>
 
-          <div>
-            <h2 className="text-lg font-medium text-white mb-4">API ключи</h2>
+        <div className="bg-[#19242a] rounded-lg border border-[#667177]/10 overflow-hidden">
+          <div className="px-6 py-4 border-b border-[#667177]/10">
+            <h2 className="text-lg font-medium text-white">API ключи</h2>
+          </div>
+          <div className="p-6">
             <div>
               <label className="block text-sm font-medium text-[#667177] mb-1">
                 OpenAI API ключ
@@ -199,7 +199,7 @@ export default function SettingsPage() {
           <button
             type="submit"
             disabled={isSaving}
-            className="px-6 py-2 rounded-lg bg-[#00ff41] text-[#161b1e] font-medium hover:bg-[#00ff41]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-2.5 rounded-lg bg-[#00ff41] text-[#161b1e] font-medium hover:bg-[#00ff41]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? 'Сохранение...' : 'Сохранить'}
           </button>
