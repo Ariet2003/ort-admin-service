@@ -40,6 +40,11 @@ model User {
 
   // Связь с предметами для преподавателей
   subjects            TrainerSubject[]
+  payments            Payment[]
+  createdCourses      Course[]        @relation("CreatedCourses", fields: [], references: [])
+  teachingGroups      Group[]         @relation("GroupTeacher")
+  managingGroups      Group[]         @relation("GroupManager")
+  groupMemberships    GroupStudent[]
 
   @@map("users")
 }
@@ -116,6 +121,11 @@ enum SubjectType {
   grammar
 }
 
+enum TrainerSubjectType {
+  language
+  math
+}
+
 enum CorrectOption {
   a
   b
@@ -127,7 +137,7 @@ enum CorrectOption {
 model TrainerSubject {
   id          Int         @id @default(autoincrement())
   trainerId   Int         @map("trainer_id")
-  subjectType SubjectType @map("subject_type")
+  subjectType TrainerSubjectType  @map("subject_type")
 
   trainer     User        @relation(fields: [trainerId], references: [id])
 
@@ -145,4 +155,148 @@ model TrialTestTrainer {
 
   @@unique([trialTestId, trainerId])
   @@map("trial_test_trainers")
+}
+
+enum PaymentType {
+  individual
+  group
+}
+
+enum PaymentStatus {
+  active
+  cancelled
+  expired
+}
+
+enum CourseAccessType {
+  free
+  paid
+}
+
+enum GroupStatus {
+  active
+  archived
+  closed
+  waiting
+}
+
+enum GroupStudentStatus {
+  active
+  removed
+  completed
+}
+
+enum CourseTestCorrectOption {
+  A
+  B
+  C
+  D
+}
+
+model Payment {
+  id           Int        @id @default(autoincrement())
+  userId       Int        @map("user_id")
+  amount       Decimal
+  paymentDate  DateTime   @map("payment_date")
+  courseId     Int        @map("course_id")
+  type         PaymentType
+  status       Boolean
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  user         User       @relation(fields: [userId], references: [id])
+  course       Course     @relation(fields: [courseId], references: [id])
+
+  @@map("payments")
+}
+
+model Course {
+  id           Int        @id @default(autoincrement())
+  title        String
+  description  String
+  price        Decimal    @default(0)
+  creatorId    Int        @map("creator_id")
+  accessType   CourseAccessType @map("access_type")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  creator      User       @relation("CreatedCourses", fields: [creatorId], references: [id])
+  materials    CourseMaterial[]
+  tests        CourseTest[]
+  groups       Group[]
+  payments     Payment[]
+
+  @@map("courses")
+}
+
+model CourseMaterial {
+  id                Int      @id @default(autoincrement())
+  courseId          Int      @map("course_id")
+  title             String
+  description       String
+  videoUrl          String   @map("video_url")
+  lectureUrls       String[] @map("lecture_urls")
+  presentationUrls  String[] @map("presentation_urls")
+  orderNumber       Int      @map("order_number")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  course            Course   @relation(fields: [courseId], references: [id])
+  groupsWithCurrentMaterial Group[] @relation("GroupCurrentMaterial")
+
+  @@map("course_materials")
+}
+
+model CourseTest {
+  id             Int      @id @default(autoincrement())
+  courseId       Int      @map("course_id")
+  question       String
+  optionA        String   @map("option_a")
+  optionB        String   @map("option_b")
+  optionC        String   @map("option_c")
+  optionD        String   @map("option_d")
+  correctOption  CourseTestCorrectOption @map("correct_option")
+  explanation    String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  course         Course   @relation(fields: [courseId], references: [id])
+
+  @@map("course_tests")
+}
+
+model Group {
+  id                Int        @id @default(autoincrement())
+  title             String
+  teacherId         Int        @map("teacher_id")
+  managerId         Int        @map("manager_id")
+  status            GroupStatus
+  courseId          Int        @map("course_id")
+  currentMaterialId Int?       @map("current_material_id")
+  startDate         DateTime?  @map("start_date")
+  endDate           DateTime?  @map("end_date")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  teacher           User       @relation("GroupTeacher", fields: [teacherId], references: [id])
+  manager           User       @relation("GroupManager", fields: [managerId], references: [id])
+  course            Course     @relation(fields: [courseId], references: [id])
+  currentMaterial   CourseMaterial? @relation("GroupCurrentMaterial", fields: [currentMaterialId], references: [id])
+  students          GroupStudent[]
+
+  @@map("groups")
+}
+
+model GroupStudent {
+  id         Int              @id @default(autoincrement())
+  groupId    Int              @map("group_id")
+  studentId  Int              @map("student_id")
+  joinedAt   DateTime         @map("joined_at")
+  status     GroupStudentStatus
+  note       String?
+
+  group      Group            @relation(fields: [groupId], references: [id])
+  student    User             @relation(fields: [studentId], references: [id])
+
+  @@map("group_students")
 }
