@@ -132,13 +132,17 @@ export default function UserDetailsModal({ isOpen, onClose, onEdit, onDelete, us
           <div className="flex gap-3 pt-2">
             <button
               onClick={onEdit}
-              className="flex-1 px-4 py-2 rounded-lg bg-[#00ff41] text-[#161b1e] font-medium hover:bg-[#00ff41]/90 transition-colors"
+              className="flex-1 px-4 py-2 rounded-lg bg-[#00ff41] text-[#161b1e] font-medium 
+                hover:bg-[#00ff41]/90 hover:scale-[1.02] hover:shadow-lg hover:shadow-[#00ff41]/20
+                transition-all duration-200 ease-in-out"
             >
               Редактировать
             </button>
             <button
               onClick={onDelete}
-              className="flex-1 px-4 py-2 rounded-lg border border-red-500 text-red-500 hover:bg-red-500/10 transition-colors"
+              className="flex-1 px-4 py-2 rounded-lg border border-red-500 text-red-500 
+                hover:bg-red-500/10 hover:scale-[1.02] hover:shadow-lg hover:shadow-red-500/20
+                transition-all duration-200 ease-in-out"
             >
               Удалить
             </button>

@@ -31,8 +31,6 @@ interface ValidationErrors {
 
 const roleLabels: Record<UserRole, string> = {
   ADMIN: 'Администратор',
-  MANAGER: 'Менеджер',
-  TRAINER: 'Преподаватель',
   STUDENT: 'Ученик',
 };
 
@@ -57,13 +55,14 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
 
   useEffect(() => {
     if (user) {
       setFormData({
         fullname: user.fullname,
         username: user.username,
-        phoneNumber: user.phoneNumber || '',
+        phoneNumber: user.phoneNumber ? user.phoneNumber.replace(/\s+/g, '') : '',
         telegramId: user.telegramId || '',
         role: user.role,
         password: '',
@@ -84,7 +83,10 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
   }, [user]);
 
   const checkUsername = useCallback(async (username: string) => {
-    if (!username) return;
+    if (!username) {
+      setErrors(prev => ({ ...prev, username: undefined }));
+      return;
+    }
     setIsCheckingUsername(true);
     try {
       const params = new URLSearchParams({ username });
@@ -102,32 +104,58 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
       }
     } catch (err) {
       console.error('Failed to check username:', err);
+      // Убираем ошибку при ошибке запроса, чтобы не блокировать форму
+      setErrors(prev => ({ ...prev, username: undefined }));
     } finally {
       setIsCheckingUsername(false);
     }
   }, [user]);
 
-  const validatePhoneNumber = useCallback((phoneNumber: string) => {
+  const validatePhoneNumber = useCallback(async (phoneNumber: string) => {
     if (!phoneNumber) {
       setErrors(prev => ({ ...prev, phoneNumber: undefined }));
       return;
     }
 
     try {
+      // Проверяем формат номера
       if (isValidPhoneNumber(phoneNumber)) {
         const parsedNumber = parsePhoneNumber(phoneNumber);
+        // Форматируем номер без пробелов
+        const formattedNumber = parsedNumber.format('INTERNATIONAL').replace(/\s+/g, '');
+        
         setFormData(prev => ({
           ...prev,
-          phoneNumber: parsedNumber.format('INTERNATIONAL')
+          phoneNumber: formattedNumber
         }));
-        setErrors(prev => ({ ...prev, phoneNumber: undefined }));
+
+        // Проверяем уникальность номера только если номер изменился
+        if (formattedNumber !== user?.phoneNumber) {
+          setIsCheckingPhone(true);
+          const params = new URLSearchParams({ phoneNumber: formattedNumber });
+          if (user?.id) {
+            params.append('excludeUserId', user.id.toString());
+          }
+          
+          const response = await fetch(`/api/users/check-phone?${params}`);
+          const data = await response.json();
+          
+          if (!data.available) {
+            setErrors(prev => ({ ...prev, phoneNumber: 'Этот номер уже используется' }));
+          } else {
+            setErrors(prev => ({ ...prev, phoneNumber: undefined }));
+          }
+        }
       } else {
         setErrors(prev => ({ ...prev, phoneNumber: 'Неверный формат номера' }));
       }
     } catch (err) {
+      console.error('Failed to validate phone number:', err);
       setErrors(prev => ({ ...prev, phoneNumber: 'Неверный формат номера' }));
+    } finally {
+      setIsCheckingPhone(false);
     }
-  }, []);
+  }, [user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -135,6 +163,9 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
       ...prev,
       [name]: value
     }));
+
+    // Сбрасываем ошибки при изменении любого поля
+    setErrors({});
 
     // Проверяем username при изменении
     if (name === 'username') {
@@ -147,11 +178,19 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
     }
   };
 
+  // Проверка обязательных полей
+  const validateRequiredFields = () => {
+    // Проверяем только обязательные поля: ФИО, логин и пароль (при создании)
+    return Boolean(formData.fullname.trim()) && 
+           Boolean(formData.username.trim()) && 
+           (!user ? Boolean(formData.password.trim()) : true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Проверяем наличие ошибок
-    if (Object.keys(errors).length > 0) {
+    // Проверяем наличие ошибок и обязательных полей
+    if (Object.keys(errors).length > 0 || !validateRequiredFields()) {
       return;
     }
 
@@ -159,11 +198,37 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
     setIsLoading(true);
 
     try {
-      const submitData = user ? formData : { ...formData, points: 0 };
-      await onSubmit(submitData);
+      // Подготавливаем данные, удаляя пустые значения
+      const cleanedData = {
+        ...formData,
+        phoneNumber: formData.phoneNumber.trim() || null,
+        telegramId: formData.telegramId.trim() || null,
+        avatarUrl: formData.avatarUrl.trim() || null,
+        points: user ? undefined : 0
+      };
+
+      await onSubmit(cleanedData);
+      // Очищаем форму перед закрытием
+      setFormData({
+        fullname: '',
+        username: '',
+        phoneNumber: '',
+        telegramId: '',
+        role: 'STUDENT',
+        password: '',
+        avatarUrl: '',
+      });
+      setErrors({});
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Произошла ошибка');
+      if (err instanceof Error) {
+        setError(err.message);
+      } else if (typeof err === 'object' && err !== null && 'error' in err) {
+        // Если сервер вернул объект с ошибкой
+        setError((err as { error: string }).error);
+      } else {
+        setError('Произошла ошибка');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -217,7 +282,7 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
                   name="avatarUrl"
                   value={formData.avatarUrl}
                   onChange={handleChange}
-                  placeholder="URL фотографии"
+                  placeholder="URL фотографии (необязательно)"
                   className="flex-1 px-4 py-2 rounded-lg border border-[#667177] bg-[#161b1e] text-white placeholder-[#667177] focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
                 />
               </div>
@@ -285,18 +350,25 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
               <label className="block text-sm font-medium text-[#667177] mb-1">
                 Телефон
               </label>
-              <input
-                type="tel"
-                name="phoneNumber"
-                value={formData.phoneNumber}
-                onChange={handleChange}
-                placeholder="+996700123456"
-                className={`w-full px-4 py-2 rounded-lg border ${
-                  errors.phoneNumber 
-                    ? 'border-red-500 focus:ring-red-500' 
-                    : 'border-[#667177] focus:ring-[#00ff41]'
-                } bg-[#161b1e] text-white placeholder-[#667177] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200`}
-              />
+              <div className="relative">
+                <input
+                  type="tel"
+                  name="phoneNumber"
+                  value={formData.phoneNumber}
+                  onChange={handleChange}
+                  placeholder="+996700123456"
+                  className={`w-full px-4 py-2 rounded-lg border ${
+                    errors.phoneNumber 
+                      ? 'border-red-500 focus:ring-red-500' 
+                      : 'border-[#667177] focus:ring-[#00ff41]'
+                  } bg-[#161b1e] text-white placeholder-[#667177] focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200`}
+                />
+                {isCheckingPhone && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="animate-spin w-4 h-4 border-2 border-[#00ff41] border-t-transparent rounded-full" />
+                  </div>
+                )}
+              </div>
               {errors.phoneNumber && (
                 <p className="mt-1 text-sm text-red-400">{errors.phoneNumber}</p>
               )}
@@ -342,15 +414,20 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
             <div className="flex gap-3 pt-2">
               <button
                 type="submit"
-                disabled={isLoading || Object.keys(errors).length > 0}
-                className="flex-1 px-4 py-2 rounded-lg bg-[#00ff41] text-[#161b1e] font-medium hover:bg-[#00ff41]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading || isCheckingUsername || isCheckingPhone || Object.keys(errors).length > 0 || !validateRequiredFields()}
+                className="flex-1 px-4 py-2 rounded-lg bg-[#00ff41] text-[#161b1e] font-medium 
+                  hover:bg-[#00ff41]/90 hover:scale-[1.02] hover:shadow-lg hover:shadow-[#00ff41]/20
+                  transition-all duration-200 ease-in-out
+                  disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
               >
                 {isLoading ? 'Сохранение...' : 'Сохранить'}
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-2 rounded-lg border border-[#667177] text-white hover:bg-[#161b1e] transition-colors"
+                className="flex-1 px-4 py-2 rounded-lg border border-[#667177] text-white 
+                  hover:bg-[#161b1e] hover:scale-[1.02] hover:shadow-lg hover:shadow-[#667177]/20
+                  transition-all duration-200 ease-in-out"
               >
                 Отмена
               </button>

@@ -30,15 +30,11 @@ interface Pagination {
 
 const roleLabels: Record<UserRole, string> = {
   ADMIN: 'Администратор',
-  MANAGER: 'Менеджер',
-  TRAINER: 'Преподаватель',
   STUDENT: 'Ученик',
 };
 
 const roleColors: Record<UserRole, string> = {
   ADMIN: 'text-red-400',
-  MANAGER: 'text-blue-400',
-  TRAINER: 'text-yellow-400',
   STUDENT: 'text-green-400',
 };
 
@@ -303,7 +299,9 @@ export default function UsersPage() {
             setEditingUser(null);
             setIsModalOpen(true);
           }}
-          className="px-6 py-2.5 rounded-lg bg-[#00ff41] text-[#161b1e] font-medium hover:bg-[#00ff41]/90 transition-colors whitespace-nowrap"
+          className="px-6 py-2.5 rounded-lg bg-[#00ff41] text-[#161b1e] font-medium whitespace-nowrap
+            hover:bg-[#00ff41]/90 hover:scale-[1.02] hover:shadow-lg hover:shadow-[#00ff41]/20
+            transition-all duration-200 ease-in-out"
         >
           Добавить
         </button>
@@ -324,13 +322,19 @@ export default function UsersPage() {
           ))}
         </select>
         <button
-          className={`px-4 py-2 rounded-lg border border-[#667177] bg-[#19242a] text-white text-xs hover:bg-[#161b1e] transition-colors ${sortBy.startsWith('fullname') ? 'bg-[#00ff41] text-[#161b1e]' : ''}`}
+          className={`px-4 py-2 rounded-lg border border-[#667177] bg-[#19242a] text-white text-xs 
+            hover:bg-[#161b1e] hover:scale-[1.02] hover:shadow-lg hover:shadow-[#667177]/20
+            transition-all duration-200 ease-in-out
+            ${sortBy.startsWith('fullname') ? 'bg-[#00ff41] text-[#161b1e] hover:bg-[#00ff41]/90 hover:shadow-[#00ff41]/20' : ''}`}
           onClick={() => setSortBy(sortBy === 'fullname_asc' ? 'fullname_desc' : 'fullname_asc')}
         >
           Сортировать по ФИО {sortBy.startsWith('fullname') && (sortBy.endsWith('asc') ? '▲' : '▼')}
         </button>
         <button
-          className={`px-4 py-2 rounded-lg border border-[#667177] bg-[#19242a] text-white text-xs hover:bg-[#161b1e] transition-colors ${sortBy.startsWith('points') ? 'bg-[#00ff41] text-[#161b1e]' : ''}`}
+          className={`px-4 py-2 rounded-lg border border-[#667177] bg-[#19242a] text-white text-xs 
+            hover:bg-[#161b1e] hover:scale-[1.02] hover:shadow-lg hover:shadow-[#667177]/20
+            transition-all duration-200 ease-in-out
+            ${sortBy.startsWith('points') ? 'bg-[#00ff41] text-[#161b1e] hover:bg-[#00ff41]/90 hover:shadow-[#00ff41]/20' : ''}`}
           onClick={() => setSortBy(sortBy === 'points_asc' ? 'points_desc' : 'points_asc')}
         >
           Сортировать по баллам {sortBy.startsWith('points') && (sortBy.endsWith('asc') ? '▲' : '▼')}
@@ -391,14 +395,14 @@ export default function UsersPage() {
                           setEditingUser(user);
                           setIsModalOpen(true);
                         }}
-                        className="p-1 text-[#00ff41] hover:text-[#00ff41]/80 transition-colors"
+                        className="p-1 text-[#00ff41] hover:text-[#00ff41]/80 hover:scale-110 transition-all duration-200 ease-in-out"
                         title="Изменить"
                       >
                         <EditIcon className="w-5 h-5" />
                       </button>
                       <button
                         onClick={() => handleDelete(user)}
-                        className="p-1 text-red-400 hover:text-red-400/80 transition-colors"
+                        className="p-1 text-red-400 hover:text-red-400/80 hover:scale-110 transition-all duration-200 ease-in-out"
                         title="Удалить"
                       >
                         <DeleteIcon className="w-5 h-5" />

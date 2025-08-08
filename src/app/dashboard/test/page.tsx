@@ -476,13 +476,17 @@ export default function TestPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-4 py-2 rounded-lg border border-[#667177] text-white hover:bg-[#161b1e] transition-colors"
+                  className="flex-1 px-4 py-2 rounded-lg border border-[#667177] text-white 
+                    hover:bg-[#161b1e] hover:scale-[1.02] hover:shadow-lg hover:shadow-[#667177]/20
+                    transition-all duration-200 ease-in-out"
                 >
                   Отмена
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 rounded-lg bg-[#00ff41] text-[#161b1e] font-medium hover:bg-[#00ff41]/90 transition-colors"
+                  className="flex-1 px-4 py-2 rounded-lg bg-[#00ff41] text-[#161b1e] font-medium 
+                    hover:bg-[#00ff41]/90 hover:scale-[1.02] hover:shadow-lg hover:shadow-[#00ff41]/20
+                    transition-all duration-200 ease-in-out"
                   disabled={form.trainers.length < 2}
                 >
                   Сохранить

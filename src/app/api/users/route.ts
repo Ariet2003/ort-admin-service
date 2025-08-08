@@ -8,7 +8,9 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
-    const role = searchParams.get('role') as UserRole | null;
+    const role = searchParams.get('role');
+    // Проверяем, что роль может быть только ADMIN или STUDENT
+    const validRole = role === 'ADMIN' || role === 'STUDENT' ? role as UserRole : null;
     const sortBy = searchParams.get('sortBy');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
@@ -25,7 +27,7 @@ export async function GET(request: Request) {
           ],
         } : {},
         // Фильтр по роли
-        role ? { role } : {},
+        validRole ? { role: validRole } : {},
       ],
     };
 
@@ -64,11 +66,6 @@ export async function GET(request: Request) {
         avatarUrl: true,
         createdAt: true,
         updatedAt: true,
-        subjects: {
-          select: {
-            subjectType: true, // TrainerSubjectType
-          },
-        },
       },
       orderBy,
       skip,
@@ -98,18 +95,6 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { password, ...userData } = body;
 
-    // Проверяем уникальность username
-    const existingUser = await prisma.user.findUnique({
-      where: { username: userData.username },
-    });
-
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'Username already exists' },
-        { status: 400 }
-      );
-    }
-
     // Хешируем пароль
     const bcrypt = require('bcryptjs');
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -119,6 +104,10 @@ export async function POST(request: Request) {
       data: {
         ...userData,
         password: hashedPassword,
+        // Убеждаемся, что пустые строки сохраняются как null
+        phoneNumber: userData.phoneNumber || null,
+        telegramId: userData.telegramId || null,
+        avatarUrl: userData.avatarUrl || null,
       },
       select: {
         id: true,
@@ -135,10 +124,45 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(user);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create user:', error);
+    
+    // Проверяем ошибку уникальности
+    if (error?.code === 'P2002') {
+      const fields = error?.meta?.target;
+      if (!fields || !Array.isArray(fields)) {
+        return NextResponse.json(
+          { error: 'Ошибка при создании пользователя: данные уже существуют' },
+          { status: 400 }
+        );
+      }
+
+      // Преобразуем названия полей в понятные пользователю
+      const fieldNames = fields.map(field => {
+        switch (field) {
+          case 'username':
+            return 'логин';
+          case 'telegram_id':
+            return 'Telegram ID';
+          case 'phone_number':
+            return 'номер телефона';
+          default:
+            return field;
+        }
+      });
+
+      // Формируем сообщение об ошибке
+      const fieldsStr = fieldNames.join(' и ');
+      const message = `Пользователь с таким ${fieldsStr} уже существует`;
+      
+      return NextResponse.json(
+        { error: message },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to create user' },
+      { error: 'Не удалось создать пользователя' },
       { status: 500 }
     );
   }
