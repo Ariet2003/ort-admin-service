@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -15,8 +9,6 @@ datasource db {
 
 enum UserRole {
   ADMIN
-  MANAGER
-  TRAINER
   STUDENT
 }
 
@@ -33,30 +25,11 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Новые связи для пробных тестов и вопросов
-  adminCreatedTests   TrialTest[]          @relation("AdminCreatedTests")
-  trainerCreatedTests TrialTestTrainer[]
-  createdQuestions    TrialTestQuestion[]  @relation("CreatedQuestions")
-
-  // Связь с предметами для преподавателей
-  subjects            TrainerSubject[]
-  payments            Payment[]
-  createdCourses      Course[]        @relation("CreatedCourses", fields: [], references: [])
-  teachingGroups      Group[]         @relation("GroupTeacher")
-  managingGroups      Group[]         @relation("GroupManager")
-  groupMemberships    GroupStudent[]
+  adminCreatedTests TrialTest[]        @relation("AdminCreatedTests")
+  createdQuestions  TrialTestQuestion[] @relation("CreatedQuestions")
+  createdCourses    Course[]        @relation("CreatedCourses")
 
   @@map("users")
-}
-
-model Setting {
-  id        Int      @id @default(autoincrement())  
-  key       String   @unique
-  value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@map("settings")
 }
 
 model TrialTest {
@@ -73,20 +46,8 @@ model TrialTest {
 
   creatorAdmin      User?   @relation("AdminCreatedTests", fields: [creatorAdminId], references: [id])
   questions         TrialTestQuestion[]
-  trainers          TrialTestTrainer[]
 
   @@map("trial_tests")
-}
-
-enum TrialTestType {
-  free
-  paid
-}
-
-enum TrialTestStatus {
-  created
-  in_progress
-  ready
 }
 
 model TrialTestQuestion {
@@ -98,7 +59,6 @@ model TrialTestQuestion {
   optionB        String   @map("option_b")
   optionC        String   @map("option_c")
   optionD        String   @map("option_d")
-  optionE        String   @map("option_e")
   subjectType    SubjectType @map("subject_type")
   correctOption  CorrectOption @map("correct_option")
   creatorId      Int      @map("creator_id")
@@ -113,6 +73,17 @@ model TrialTestQuestion {
   @@map("trial_test_questions")
 }
 
+enum TrialTestType {
+  free
+  paid
+}
+
+enum TrialTestStatus {
+  created
+  in_progress
+  ready
+}
+
 enum SubjectType {
   math1
   math2
@@ -121,93 +92,11 @@ enum SubjectType {
   grammar
 }
 
-enum TrainerSubjectType {
-  language
-  math
-}
-
 enum CorrectOption {
   a
   b
   c
   d
-  e
-}
-
-model TrainerSubject {
-  id          Int         @id @default(autoincrement())
-  trainerId   Int         @map("trainer_id")
-  subjectType TrainerSubjectType  @map("subject_type")
-
-  trainer     User        @relation(fields: [trainerId], references: [id])
-
-  @@unique([trainerId, subjectType])
-  @@map("trainer_subjects")
-}
-
-model TrialTestTrainer {
-  id           Int       @id @default(autoincrement())
-  trialTestId  Int       @map("trial_test_id")
-  trainerId    Int       @map("trainer_id")
-
-  trialTest    TrialTest @relation(fields: [trialTestId], references: [id])
-  trainer      User      @relation(fields: [trainerId], references: [id])
-
-  @@unique([trialTestId, trainerId])
-  @@map("trial_test_trainers")
-}
-
-enum PaymentType {
-  individual
-  group
-}
-
-enum PaymentStatus {
-  active
-  cancelled
-  expired
-}
-
-enum CourseAccessType {
-  free
-  paid
-}
-
-enum GroupStatus {
-  active
-  archived
-  closed
-  waiting
-}
-
-enum GroupStudentStatus {
-  active
-  removed
-  completed
-}
-
-enum CourseTestCorrectOption {
-  A
-  B
-  C
-  D
-}
-
-model Payment {
-  id           Int        @id @default(autoincrement())
-  userId       Int        @map("user_id")
-  amount       Decimal
-  paymentDate  DateTime   @map("payment_date")
-  courseId     Int        @map("course_id")
-  type         PaymentType
-  status       Boolean
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
-
-  user         User       @relation(fields: [userId], references: [id])
-  course       Course     @relation(fields: [courseId], references: [id])
-
-  @@map("payments")
 }
 
 model Course {
@@ -223,10 +112,24 @@ model Course {
   creator      User       @relation("CreatedCourses", fields: [creatorId], references: [id])
   materials    CourseMaterial[]
   tests        CourseTest[]
-  groups       Group[]
-  payments     Payment[]
 
   @@map("courses")
+}
+
+enum CourseAccessType {
+  free
+  paid
+}
+
+// Settings table used by API
+model Setting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
 }
 
 model CourseMaterial {
@@ -242,7 +145,6 @@ model CourseMaterial {
   updatedAt         DateTime @updatedAt @map("updated_at")
 
   course            Course   @relation(fields: [courseId], references: [id])
-  groupsWithCurrentMaterial Group[] @relation("GroupCurrentMaterial")
 
   @@map("course_materials")
 }
@@ -265,38 +167,9 @@ model CourseTest {
   @@map("course_tests")
 }
 
-model Group {
-  id                Int        @id @default(autoincrement())
-  title             String
-  teacherId         Int        @map("teacher_id")
-  managerId         Int        @map("manager_id")
-  status            GroupStatus
-  courseId          Int        @map("course_id")
-  currentMaterialId Int?       @map("current_material_id")
-  startDate         DateTime?  @map("start_date")
-  endDate           DateTime?  @map("end_date")
-  createdAt         DateTime   @default(now()) @map("created_at")
-  updatedAt         DateTime   @updatedAt @map("updated_at")
-
-  teacher           User       @relation("GroupTeacher", fields: [teacherId], references: [id])
-  manager           User       @relation("GroupManager", fields: [managerId], references: [id])
-  course            Course     @relation(fields: [courseId], references: [id])
-  currentMaterial   CourseMaterial? @relation("GroupCurrentMaterial", fields: [currentMaterialId], references: [id])
-  students          GroupStudent[]
-
-  @@map("groups")
-}
-
-model GroupStudent {
-  id         Int              @id @default(autoincrement())
-  groupId    Int              @map("group_id")
-  studentId  Int              @map("student_id")
-  joinedAt   DateTime         @map("joined_at")
-  status     GroupStudentStatus
-  note       String?
-
-  group      Group            @relation(fields: [groupId], references: [id])
-  student    User             @relation(fields: [studentId], references: [id])
-
-  @@map("group_students")
+enum CourseTestCorrectOption {
+  A
+  B
+  C
+  D
 }
