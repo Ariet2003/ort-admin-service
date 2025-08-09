@@ -12,12 +12,11 @@ export async function POST(request: Request) {
       type,
       durationMinutes,
       totalQuestions,
-      trainers,
       creatorAdminId, // опционально
     } = body;
 
-    if (!title || !description || !type || !durationMinutes || !totalQuestions || !Array.isArray(trainers) || trainers.length < 2) {
-      return NextResponse.json({ error: 'Все поля обязательны, тренеров минимум 2' }, { status: 400 });
+    if (!title || !description || !type || !durationMinutes || !totalQuestions) {
+      return NextResponse.json({ error: 'Все поля обязательны' }, { status: 400 });
     }
 
     const trialTest = await prisma.trialTest.create({
@@ -32,13 +31,6 @@ export async function POST(request: Request) {
       },
     });
 
-    await prisma.trialTestTrainer.createMany({
-      data: trainers.map((trainerId: number | string) => ({
-        trialTestId: trialTest.id,
-        trainerId: Number(trainerId),
-      })),
-    });
-
     return NextResponse.json({ success: true, trialTestId: trialTest.id });
   } catch (error) {
     console.error('Failed to create trial test:', error);
@@ -51,13 +43,13 @@ export async function GET(request: Request) {
     const tests = await prisma.trialTest.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
-        trainers: {
-          include: {
-            trainer: {
-              select: { id: true, fullname: true }
-            }
+        creatorAdmin: {
+          select: {
+            id: true,
+            fullname: true
           }
-        }
+        },
+        questions: true
       }
     });
     return NextResponse.json({ tests });

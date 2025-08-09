@@ -5,52 +5,21 @@ const prisma = new PrismaClient();
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
-    const id = parseInt(params.id);
-    const body = await request.json();
-    const { trainers, ...testData } = body;
+    const [body, id] = await Promise.all([
+      request.json(),
+      Promise.resolve(parseInt(context.params.id))
+    ]);
 
     // Обновляем тест
     const updatedTest = await prisma.trialTest.update({
       where: { id },
-      data: testData,
+      data: body,
     });
 
-    // Удаляем старые связи с тренерами
-    await prisma.trialTestTrainer.deleteMany({
-      where: { trialTestId: id },
-    });
-
-    // Создаем новые связи с тренерами
-    if (trainers && trainers.length > 0) {
-      await prisma.trialTestTrainer.createMany({
-        data: trainers.map((trainerId: string) => ({
-          trialTestId: id,
-          trainerId: parseInt(trainerId),
-        })),
-      });
-    }
-
-    // Получаем обновленный тест с тренерами
-    const result = await prisma.trialTest.findUnique({
-      where: { id },
-      include: {
-        trainers: {
-          include: {
-            trainer: {
-              select: {
-                id: true,
-                fullname: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    return NextResponse.json(result);
+    return NextResponse.json(updatedTest);
   } catch (error) {
     console.error('Failed to update trial test:', error);
     return NextResponse.json(
@@ -62,17 +31,12 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
-    const id = parseInt(params.id);
+    const id = await Promise.resolve(parseInt(context.params.id));
 
-    // Удаляем связи с тренерами
-    await prisma.trialTestTrainer.deleteMany({
-      where: { trialTestId: id },
-    });
-
-    // Удаляем сам тест
+    // Удаляем тест
     await prisma.trialTest.delete({
       where: { id },
     });
@@ -85,4 +49,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-} 
+}
