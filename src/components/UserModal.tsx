@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserRole } from '@prisma/client';
+import { useToast } from '@/contexts/ToastContext';
 
 type Language = 'KYRGYZ' | 'RUSSIAN';
 import Image from 'next/image';
@@ -30,6 +31,7 @@ interface Props {
 interface ValidationErrors {
   username?: string;
   phoneNumber?: string;
+  avatarUrl?: string;
 }
 
 const roleLabels: Record<UserRole, string> = {
@@ -49,6 +51,7 @@ const UserIcon = ({ className = "" }) => (
 );
 
 export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
+  const { showToast } = useToast();
   const [formData, setFormData] = useState({
     fullname: '',
     username: '',
@@ -168,15 +171,37 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
     }
   }, [user]);
 
+  const isValidUrl = (urlString: string): boolean => {
+    try {
+      if (!urlString) return true; // Пустая строка считается валидной, так как поле необязательное
+      const url = new URL(urlString);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (err) {
+      return false;
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+
+    // Специальная обработка для URL аватара
+    if (name === 'avatarUrl' && !isValidUrl(value)) {
+      setFormData(prev => ({ ...prev, [name]: value }));
+      setErrors(prev => ({ ...prev, avatarUrl: 'URL должен начинаться с http:// или https://' }));
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
 
     // Сбрасываем ошибки при изменении любого поля
-    setErrors({});
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[name as keyof ValidationErrors];
+      return newErrors;
+    });
 
     // Проверяем username при изменении
     if (name === 'username') {
@@ -192,17 +217,28 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
   // Проверка обязательных полей
   const validateRequiredFields = () => {
     // Проверяем только обязательные поля: ФИО, логин и пароль (при создании)
-    return Boolean(formData.fullname.trim()) && 
-           Boolean(formData.username.trim()) && 
-           (!user ? Boolean(formData.password.trim()) : true);
+    const hasRequiredFields = Boolean(formData.fullname.trim()) && 
+                            Boolean(formData.username.trim()) && 
+                            (!user ? Boolean(formData.password.trim()) : true);
+
+    // Проверяем только критические ошибки (username и phoneNumber)
+    const hasCriticalErrors = Boolean(errors.username) || Boolean(errors.phoneNumber);
+
+    // URL может быть некорректным, но это не должно блокировать кнопку
+    return hasRequiredFields && !hasCriticalErrors;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Проверяем наличие ошибок и обязательных полей
-    if (Object.keys(errors).length > 0 || !validateRequiredFields()) {
+    // Проверяем валидность формы
+    if (!validateRequiredFields()) {
       return;
+    }
+
+    // Если URL некорректный, очищаем его перед отправкой
+    if (formData.avatarUrl && !isValidUrl(formData.avatarUrl)) {
+      setFormData(prev => ({ ...prev, avatarUrl: '' }));
     }
 
     setError('');
@@ -219,6 +255,12 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
       };
 
       await onSubmit(cleanedData);
+      showToast(
+        user 
+          ? 'Пользователь успешно обновлен' 
+          : 'Пользователь успешно создан',
+        'success'
+      );
       // Очищаем форму перед закрытием
       setFormData({
         fullname: '',
@@ -233,14 +275,14 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
       setErrors({});
       onClose();
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else if (typeof err === 'object' && err !== null && 'error' in err) {
-        // Если сервер вернул объект с ошибкой
-        setError((err as { error: string }).error);
-      } else {
-        setError('Произошла ошибка');
-      }
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : typeof err === 'object' && err !== null && 'error' in err
+          ? (err as { error: string }).error
+          : 'Произошла ошибка';
+      
+      setError(errorMessage);
+      showToast(errorMessage, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -266,7 +308,7 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
         >
           <div className="flex items-center gap-4 mb-4">
             <div className="relative w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-[#00ff41]/20 to-[#19242a] border-2 border-[#00ff41]/20 shadow-lg shadow-[#00ff41]/5">
-              {formData.avatarUrl ? (
+              {formData.avatarUrl && isValidUrl(formData.avatarUrl) ? (
                 <Image
                   src={formData.avatarUrl}
                   alt="Avatar"
@@ -283,14 +325,23 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
               <h2 className="text-xl font-bold text-white mb-1">
                 {user ? 'Редактировать пользователя' : 'Создать пользователя'}
               </h2>
-              <input
-                type="text"
-                name="avatarUrl"
-                value={formData.avatarUrl}
-                onChange={handleChange}
-                placeholder="URL фотографии (необязательно)"
-                className="w-full px-3 py-1.5 rounded-lg border border-[#667177]/10 bg-[#161b1e] text-white placeholder-[#667177] text-sm focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
-              />
+              <div>
+                <input
+                  type="text"
+                  name="avatarUrl"
+                  value={formData.avatarUrl}
+                  onChange={handleChange}
+                  placeholder="URL фотографии (необязательно)"
+                  className={`w-full px-3 py-1.5 rounded-lg border ${
+                    errors.avatarUrl 
+                      ? 'border-red-500 focus:ring-red-500' 
+                      : 'border-[#667177]/10 focus:ring-[#00ff41] hover:border-[#00ff41]/20'
+                  } bg-[#161b1e] text-white placeholder-[#667177] text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-colors`}
+                />
+                {errors.avatarUrl && (
+                  <p className="mt-1 text-sm text-red-400">{errors.avatarUrl}</p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -479,7 +530,7 @@ export default function UserModal({ isOpen, onClose, onSubmit, user }: Props) {
             <div className="flex gap-3">
               <button
                 type="submit"
-                disabled={isLoading || isCheckingUsername || isCheckingPhone || Object.keys(errors).length > 0 || !validateRequiredFields()}
+                disabled={isLoading || isCheckingUsername || isCheckingPhone || !validateRequiredFields()}
                 className="flex-1 px-4 py-2 rounded-lg bg-[#00ff41] text-[#161b1e] font-medium 
                   hover:bg-[#00ff41]/90 hover:scale-[1.02] hover:shadow-lg hover:shadow-[#00ff41]/20
                   transition-all duration-200 ease-in-out

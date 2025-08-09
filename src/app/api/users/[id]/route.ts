@@ -6,11 +6,13 @@ const prisma = new PrismaClient();
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
   try {
+    const params = await context.params;
+    const userId = parseInt(params.id);
     const user = await prisma.user.findUnique({
-      where: { id: parseInt(params.id) },
+      where: { id: userId },
       select: {
         id: true,
         fullname: true,
@@ -41,12 +43,19 @@ export async function GET(
   }
 }
 
+interface RouteContext {
+  params: Promise<{ id: string }>;
+}
+
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
   try {
+    const params = await context.params;
+    const userId = parseInt(params.id);
     const body = await request.json();
+    
     const { password, ...userData } = body;
 
     // Если меняется username, проверяем его уникальность
@@ -55,7 +64,7 @@ export async function PUT(
         where: {
           username: userData.username,
           NOT: {
-            id: parseInt(params.id),
+            id: userId,
           },
         },
       });
@@ -75,7 +84,7 @@ export async function PUT(
     };
 
     const user = await prisma.user.update({
-      where: { id: parseInt(params.id) },
+      where: { id: userId },
       data: updateData,
       select: {
         id: true,
@@ -102,11 +111,13 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
   try {
+    const params = await context.params;
+    const userId = parseInt(params.id);
     await prisma.user.delete({
-      where: { id: parseInt(params.id) },
+      where: { id: userId },
     });
 
     return NextResponse.json({ success: true });

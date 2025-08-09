@@ -3,14 +3,19 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+interface RouteContext {
+  params: Promise<{ id: string }>;
+}
+
 export async function PUT(
   request: Request,
-  context: { params: { id: string } }
+  context: RouteContext
 ) {
   try {
+    const params = await context.params;
     const [body, id] = await Promise.all([
       request.json(),
-      Promise.resolve(parseInt(context.params.id))
+      Promise.resolve(parseInt(params.id))
     ]);
 
     // Обновляем тест
@@ -31,10 +36,11 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  context: { params: { id: string } }
+  context: RouteContext
 ) {
   try {
-    const id = await Promise.resolve(parseInt(context.params.id));
+    const params = await context.params;
+    const id = parseInt(params.id);
 
     // Удаляем тест
     await prisma.trialTest.delete({

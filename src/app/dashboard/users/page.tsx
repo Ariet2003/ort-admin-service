@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserRole } from '@prisma/client';
+import { useToast } from '@/contexts/ToastContext';
 
 type Language = 'KYRGYZ' | 'RUSSIAN';
 import Image from 'next/image';
@@ -84,6 +85,7 @@ const UsersIcon = ({ className = "" }) => (
 type SortOption = 'fullname_asc' | 'fullname_desc' | 'points_desc' | 'points_asc';
 
 export default function UsersPage() {
+  const { showToast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     total: 0,
@@ -121,13 +123,20 @@ export default function UsersPage() {
       const response = await fetch(`/api/users?${searchParams}`);
       const data = await response.json();
 
-      if (!response.ok) throw new Error(data.error);
+      if (!response.ok) {
+        throw new Error(data.error || 'Не удалось загрузить список пользователей');
+      }
 
       setUsers(data.users);
       setPagination(data.pagination);
       setError('');
     } catch (err) {
-      setError('Не удалось загрузить список пользователей');
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'Не удалось загрузить список пользователей';
+      
+      setError(errorMessage);
+      showToast(errorMessage, 'error');
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -151,7 +160,11 @@ export default function UsersPage() {
         method: 'DELETE',
       });
 
-      if (!response.ok) throw new Error('Failed to delete user');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Не удалось удалить пользователя');
+      }
 
       fetchUsers();
       setIsDeleteModalOpen(false);
@@ -161,7 +174,12 @@ export default function UsersPage() {
         setViewingUser(null);
       }
     } catch (err) {
-      setError('Не удалось удалить пользователя');
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'Не удалось удалить пользователя';
+      
+      setError(errorMessage);
+      showToast(errorMessage, 'error');
       console.error(err);
     }
   };
@@ -196,7 +214,18 @@ export default function UsersPage() {
       fetchUsers();
       setIsModalOpen(false);
       setEditingUser(null);
+      showToast(
+        editingUser 
+          ? 'Пользователь успешно обновлен' 
+          : 'Пользователь успешно создан',
+        'success'
+      );
     } catch (err) {
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'Произошла ошибка при сохранении пользователя';
+      
+      showToast(errorMessage, 'error');
       throw err;
     }
   };

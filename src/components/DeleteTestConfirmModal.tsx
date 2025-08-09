@@ -7,11 +7,12 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  userName: string;
+  testTitle: string;
 }
 
-export default function DeleteConfirmModal({ isOpen, onClose, onConfirm, userName }: Props) {
+export default function DeleteTestConfirmModal({ isOpen, onClose, onConfirm, testTitle }: Props) {
   const { showToast } = useToast();
+
   if (!isOpen) return null;
 
   return (
@@ -35,14 +36,14 @@ export default function DeleteConfirmModal({ isOpen, onClose, onConfirm, userNam
           </h2>
           
           <p className="text-[#667177]">
-            Вы действительно хотите удалить пользователя <span className="text-white">{userName}</span>? Это действие нельзя будет отменить.
+            Вы действительно хотите удалить тест <span className="text-white">{testTitle}</span>? Это действие нельзя будет отменить.
           </p>
 
           <div className="flex gap-3 pt-2">
             <button
               onClick={() => {
                 onConfirm();
-                showToast('Пользователь успешно удален', 'success');
+                showToast('Тест успешно удален', 'success');
               }}
               className="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white font-medium 
                 hover:bg-red-600 hover:scale-[1.02] hover:shadow-lg hover:shadow-red-500/20
@@ -52,7 +53,7 @@ export default function DeleteConfirmModal({ isOpen, onClose, onConfirm, userNam
             </button>
             <button
               onClick={onClose}
-              className="flex-1 px-4 py-2 rounded-lg border border-[#667177] text-white 
+              className="flex-1 px-4 py-2 rounded-lg border border-[#667177]/10 text-white 
                 hover:bg-[#161b1e] hover:scale-[1.02] hover:shadow-lg hover:shadow-[#667177]/20
                 transition-all duration-200 ease-in-out"
             >
@@ -63,4 +64,4 @@ export default function DeleteConfirmModal({ isOpen, onClose, onConfirm, userNam
       </motion.div>
     </AnimatePresence>
   );
-} 
+}

@@ -1,6 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { useToast } from '@/contexts/ToastContext';
+import TestModal from '@/components/TestModal';
+import DeleteTestConfirmModal from '@/components/DeleteTestConfirmModal';
 
 const mockTests = [
   {
@@ -30,6 +33,7 @@ const mockTests = [
 
 const typeLabels: Record<string, string> = { free: 'Бесплатный', paid: 'Платный' };
 const statusLabels: Record<string, string> = { created: 'Создан', in_progress: 'В работе', ready: 'Готов' };
+const languageLabels: Record<string, string> = { KYRGYZ: 'Кыргызский', RUSSIAN: 'Русский' };
 const typeColors: Record<string, string> = { free: 'text-green-400', paid: 'text-blue-400' };
 const statusColors: Record<string, string> = {
   created: 'text-yellow-400',
@@ -75,9 +79,11 @@ const trainerSubjectLabels: Record<string, string> = {
 };
 
 export default function TestPage() {
+  const { showToast } = useToast();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [languageFilter, setLanguageFilter] = useState('');
   const [sort, setSort] = useState('createdAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
@@ -85,7 +91,7 @@ export default function TestPage() {
 
   // Модалка создания теста
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
+
   const [editingTestId, setEditingTestId] = useState<number | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [testToDelete, setTestToDelete] = useState<any | null>(null);
@@ -128,16 +134,7 @@ export default function TestPage() {
   };
 
   const handleEdit = (test: any) => {
-    setForm({
-      title: test.title,
-      description: test.description,
-      type: test.type,
-      durationMinutes: String(test.durationMinutes),
-      totalQuestions: String(test.totalQuestions),
-
-    });
     setEditingTestId(test.id);
-    setIsEditMode(true);
     setIsModalOpen(true);
   };
 
@@ -163,9 +160,13 @@ export default function TestPage() {
       setDeleteConfirmOpen(false);
       setTestToDelete(null);
       fetchTests();
+      showToast('Тест успешно удален', 'success');
     } catch (error: any) {
       console.error('Ошибка удаления:', error);
-      // Можно добавить уведомление об ошибке
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Произошла ошибка при удалении теста';
+      showToast(errorMessage, 'error');
     }
   };
 
@@ -183,24 +184,17 @@ export default function TestPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError('');
-
+  const handleSubmit = async (formData: any) => {
     try {
-      const url = isEditMode ? `/api/trial-tests/${editingTestId}` : '/api/trial-tests';
-      const method = isEditMode ? 'PUT' : 'POST';
+      const url = editingTestId ? `/api/trial-tests/${editingTestId}` : '/api/trial-tests';
+      const method = editingTestId ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...form,
-          durationMinutes: Number(form.durationMinutes),
-          totalQuestions: Number(form.totalQuestions),
-        }),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -210,20 +204,22 @@ export default function TestPage() {
 
       // Закрываем модальное окно и сбрасываем состояние
       setIsModalOpen(false);
-      setIsEditMode(false);
       setEditingTestId(null);
-      setForm({
-        title: '',
-        description: '',
-        type: 'free',
-        durationMinutes: '150',
-        totalQuestions: '210',
-      });
 
-      // Обновляем список тестов
+      // Обновляем список тестов и показываем уведомление
       fetchTests();
+      showToast(
+        editingTestId 
+          ? 'Тест успешно обновлен' 
+          : 'Тест успешно создан',
+        'success'
+      );
     } catch (error: any) {
-      setFormError(error.message);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Произошла ошибка при сохранении теста';
+      setFormError(errorMessage);
+      showToast(errorMessage, 'error');
     }
   };
 
@@ -231,7 +227,8 @@ export default function TestPage() {
     .filter(t =>
       (!search || t.title.toLowerCase().includes(search.toLowerCase()) || t.description.toLowerCase().includes(search.toLowerCase())) &&
       (!typeFilter || t.type === typeFilter) &&
-      (!statusFilter || t.status === statusFilter)
+      (!statusFilter || t.status === statusFilter) &&
+      (!languageFilter || t.language === languageFilter)
     )
     .sort((a, b) => {
       if (sort === 'createdAt') {
@@ -276,16 +273,7 @@ export default function TestPage() {
             hover:bg-[#00ff41]/90 hover:scale-[1.02] hover:shadow-lg hover:shadow-[#00ff41]/20
             transition-all duration-200 ease-in-out"
           onClick={() => {
-            setIsEditMode(false);
             setEditingTestId(null);
-            setForm({
-              title: '',
-              description: '',
-              type: 'free',
-              durationMinutes: '',
-              totalQuestions: '',
-
-            });
             setIsModalOpen(true);
           }}
         >
@@ -293,115 +281,29 @@ export default function TestPage() {
         </button>
       </div>
 
-      {/* Модальное окно создания теста */}
-      {isModalOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-          onClick={() => setIsModalOpen(false)}
-        >
-          <div
-            className="bg-[#19242a] rounded-lg w-full max-w-md p-6 space-y-2"
-            onClick={e => e.stopPropagation()}
-          >
-            <h2 className="text-xl font-bold text-white mb-4">
-              {isEditMode ? 'Редактировать пробный тест' : 'Создать пробный тест'}
-            </h2>
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <div>
-                <label className="block text-sm font-medium text-[#667177] mb-1">Название теста</label>
-                <input
-                  name="title"
-                  value={form.title}
-                  onChange={handleFormChange}
-                  className="w-full px-4 py-2 rounded-lg border border-[#667177] bg-[#161b1e] text-white placeholder-[#667177] focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
-                  placeholder="Введите название"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#667177] mb-1">Описание теста</label>
-                <textarea
-                  name="description"
-                  value={form.description}
-                  onChange={handleFormChange}
-                  className="w-full px-4 py-2 rounded-lg border border-[#667177] bg-[#161b1e] text-white placeholder-[#667177] focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
-                  placeholder="Введите описание"
-                  rows={3}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#667177] mb-1">Тип теста</label>
-                <select
-                  name="type"
-                  value={form.type}
-                  onChange={handleFormChange}
-                  className="w-full px-4 py-2 rounded-lg border border-[#667177] bg-[#161b1e] text-white focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
-                  required
-                >
-                  <option value="free">Бесплатный</option>
-                  <option value="paid">Платный</option>
-                </select>
-              </div>
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-[#667177] mb-1">Время (минут)</label>
-                  <input
-                    name="durationMinutes"
-                    type="number"
-                    min={1}
-                    value={form.durationMinutes}
-                    onChange={handleFormChange}
-                    className="w-full px-4 py-2 rounded-lg border border-[#667177] bg-[#161b1e] text-white placeholder-[#667177] focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
-                    placeholder="150"
-                    required
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-[#667177] mb-1">Количество вопросов</label>
-                  <input
-                    name="totalQuestions"
-                    type="number"
-                    min={1}
-                    value={form.totalQuestions}
-                    onChange={handleFormChange}
-                    className="w-full px-4 py-2 rounded-lg border border-[#667177] bg-[#161b1e] text-white placeholder-[#667177] focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
-                    placeholder="210"
-                    required
-                  />
-                </div>
-              </div>
-
-              {formError && (
-                <div className="p-2 rounded bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">{formError}</div>
-              )}
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-4 py-2 rounded-lg border border-[#667177] text-white 
-                    hover:bg-[#161b1e] hover:scale-[1.02] hover:shadow-lg hover:shadow-[#667177]/20
-                    transition-all duration-200 ease-in-out"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 rounded-lg bg-[#00ff41] text-[#161b1e] font-medium 
-                    hover:bg-[#00ff41]/90 hover:scale-[1.02] hover:shadow-lg hover:shadow-[#00ff41]/20
-                    transition-all duration-200 ease-in-out"
-
-                >
-                  Сохранить
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Модальное окно создания/редактирования теста */}
+      <TestModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+                      setEditingTestId(null);
+        }}
+        onSubmit={handleSubmit}
+        test={editingTestId ? tests.find(t => t.id === editingTestId) : null}
+      />
 
       {/* Фильтры и сортировка */}
       <div className="flex flex-wrap gap-4">
+        <select
+          value={languageFilter}
+          onChange={e => setLanguageFilter(e.target.value)}
+          className="px-4 py-2 rounded-lg border border-[#667177] bg-[#19242a] text-white text-xs focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
+        >
+          <option value="">Все языки</option>
+          {Object.entries(languageLabels).map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </select>
         <select
           value={typeFilter}
           onChange={e => setTypeFilter(e.target.value)}
@@ -448,6 +350,7 @@ export default function TestPage() {
             <thead>
               <tr className="border-b border-[#667177]/10 text-[#667177]">
                 <th className="px-4 py-3 text-center">Название</th>
+                <th className="px-4 py-3 text-center">Язык</th>
                 <th className="px-4 py-3 text-center">Тип</th>
                 <th className="px-4 py-3 text-center">Статус</th>
                 <th className="px-4 py-3 text-center">Вопросов</th>
@@ -458,12 +361,12 @@ export default function TestPage() {
             </thead>
             <tbody>
               {loadingTests ? (
-                <tr><td colSpan={7} className="text-center text-[#667177] py-8">Загрузка...</td></tr>
+                <tr><td colSpan={8} className="text-center text-[#667177] py-8">Загрузка...</td></tr>
               ) : errorTests ? (
-                <tr><td colSpan={7} className="text-center text-red-400 py-8">{errorTests}</td></tr>
+                <tr><td colSpan={8} className="text-center text-red-400 py-8">{errorTests}</td></tr>
               ) : paged.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center text-[#667177] py-8">Нет пробных тестов</td>
+                  <td colSpan={8} className="text-center text-[#667177] py-8">Нет пробных тестов</td>
                 </tr>
               ) : (
                 paged.map(test => (
@@ -473,6 +376,7 @@ export default function TestPage() {
                     onClick={() => setSelectedTest(test)}
                   >
                     <td className="px-4 py-3 text-white font-medium text-center">{test.title}</td>
+                    <td className="px-4 py-3 text-center text-blue-400">{languageLabels[test.language]}</td>
                     <td className={`px-4 py-3 font-semibold text-center ${typeColors[test.type]}`}>{typeLabels[test.type]}</td>
                     <td className={`px-4 py-3 font-semibold text-center ${statusColors[test.status]}`}>{statusLabels[test.status]}</td>
                     <td className="px-4 py-3 text-center">{test.totalQuestions}</td>
@@ -613,55 +517,15 @@ export default function TestPage() {
       )}
 
       {/* Модальное окно подтверждения удаления */}
-      {deleteConfirmOpen && testToDelete && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-          onClick={() => setDeleteConfirmOpen(false)}
-        >
-          <div
-            className="bg-[#19242a] rounded-lg w-full max-w-md p-6 space-y-4"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center">
-                <DeleteIcon className="w-5 h-5 text-red-400" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Удалить тест</h3>
-                <p className="text-[#667177] text-sm">Это действие нельзя отменить</p>
-              </div>
-            </div>
-            
-            <div className="bg-[#161b1e] rounded-lg p-4 border border-[#667177]/20">
-              <p className="text-white font-medium">{testToDelete.title}</p>
-              <p className="text-[#667177] text-sm mt-1">
-                Тип: {typeLabels[testToDelete.type]} • Вопросов: {testToDelete.totalQuestions}
-              </p>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setDeleteConfirmOpen(false)}
-                className="flex-1 px-4 py-2 rounded-lg border border-[#667177] text-white 
-                  hover:bg-[#161b1e] hover:scale-[1.02] hover:shadow-lg hover:shadow-[#667177]/20
-                  transition-all duration-200 ease-in-out"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={confirmDelete}
-                className="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white font-medium 
-                  hover:bg-red-600 hover:scale-[1.02] hover:shadow-lg hover:shadow-red-500/20
-                  transition-all duration-200 ease-in-out"
-              >
-                Удалить
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteTestConfirmModal
+        isOpen={deleteConfirmOpen}
+        onClose={() => {
+          setDeleteConfirmOpen(false);
+          setTestToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        testTitle={testToDelete?.title || ''}
+      />
     </div>
   );
 } 
