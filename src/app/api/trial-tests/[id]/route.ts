@@ -1,10 +1,47 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
+}
+
+export async function GET(
+  request: Request,
+  context: RouteContext
+) {
+  try {
+    const params = await context.params;
+    const id = parseInt(params.id);
+
+    const test = await prisma.trialTest.findUnique({
+      where: { id },
+      include: {
+        questions: true,
+        creatorAdmin: {
+          select: {
+            id: true,
+            fullname: true,
+            username: true,
+          },
+        },
+      },
+    });
+
+    if (!test) {
+      return NextResponse.json(
+        { error: 'Тест не найден' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(test);
+  } catch (error) {
+    console.error('Error fetching test:', error);
+    return NextResponse.json(
+      { error: 'Ошибка при загрузке теста' },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT(
@@ -13,22 +50,27 @@ export async function PUT(
 ) {
   try {
     const params = await context.params;
-    const [body, id] = await Promise.all([
-      request.json(),
-      Promise.resolve(parseInt(params.id))
-    ]);
+    const id = parseInt(params.id);
+    const data = await request.json();
 
-    // Обновляем тест
-    const updatedTest = await prisma.trialTest.update({
+    const test = await prisma.trialTest.update({
       where: { id },
-      data: body,
+      data: {
+        title: data.title,
+        description: data.description,
+        type: data.type,
+        status: data.status,
+        durationMinutes: data.durationMinutes,
+        totalQuestions: data.totalQuestions,
+        language: data.language,
+      },
     });
 
-    return NextResponse.json(updatedTest);
+    return NextResponse.json(test);
   } catch (error) {
-    console.error('Failed to update trial test:', error);
+    console.error('Error updating test:', error);
     return NextResponse.json(
-      { error: 'Failed to update trial test' },
+      { error: 'Ошибка при обновлении теста' },
       { status: 500 }
     );
   }
@@ -42,16 +84,21 @@ export async function DELETE(
     const params = await context.params;
     const id = parseInt(params.id);
 
-    // Удаляем тест
+    // Сначала удаляем все вопросы теста
+    await prisma.trialTestQuestion.deleteMany({
+      where: { trialTestId: id },
+    });
+
+    // Затем удаляем сам тест
     await prisma.trialTest.delete({
       where: { id },
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Failed to delete trial test:', error);
+    console.error('Error deleting test:', error);
     return NextResponse.json(
-      { error: 'Failed to delete trial test' },
+      { error: 'Ошибка при удалении теста' },
       { status: 500 }
     );
   }

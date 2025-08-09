@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
 import TestModal from '@/components/TestModal';
 import DeleteTestConfirmModal from '@/components/DeleteTestConfirmModal';
@@ -79,6 +80,7 @@ const trainerSubjectLabels: Record<string, string> = {
 };
 
 export default function TestPage() {
+  const router = useRouter();
   const { showToast } = useToast();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -494,8 +496,7 @@ export default function TestPage() {
                       transition-all duration-200 ease-in-out"
                     onClick={(e) => {
                       e.stopPropagation();
-                      // TODO: Добавить логику для заполнения теста
-                      console.log('Заполнить тест:', selectedTest.id);
+                      router.push(`/dashboard/test/${selectedTest.id}/questions`);
                     }}
                   >
                     Заполнить тест
