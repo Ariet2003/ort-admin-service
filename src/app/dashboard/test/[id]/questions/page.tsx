@@ -73,16 +73,42 @@ const QuestionsPage: React.FC = () => {
         return;
       }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(prev => ({ ...prev, [index]: reader.result as string }));
-        setQuestions(prev => {
-          const updated = [...prev];
-          updated[index] = { ...updated[index], imageUrl: reader.result as string };
-          return updated;
-        });
+      // Загружаем файл в S3 сразу при выборе
+      const uploadImage = async () => {
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to upload image');
+          }
+
+          const data = await response.json();
+          
+          // Обновляем вопрос с реальным URL из S3
+          setQuestions(prev => {
+            const updated = [...prev];
+            updated[index] = {
+              ...updated[index],
+              imageUrl: data.url // Сохраняем реальный URL из S3
+            };
+            return updated;
+          });
+
+          // Обновляем предпросмотр
+          setImagePreview(prev => ({ ...prev, [index]: data.url }));
+        } catch (error) {
+          console.error('Error uploading image:', error);
+          showToast('Ошибка при загрузке изображения', 'error');
+        }
       };
-      reader.readAsDataURL(file);
+
+      uploadImage();
     }
   };
 
@@ -94,7 +120,11 @@ const QuestionsPage: React.FC = () => {
     });
     setQuestions(prev => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], imageUrl: undefined };
+      updated[index] = { 
+        ...updated[index], 
+        imageUrl: undefined,
+        imageFile: undefined  // Очищаем и временный файл
+      };
       return updated;
     });
   };
@@ -105,6 +135,23 @@ const QuestionsPage: React.FC = () => {
       updated[index] = { ...updated[index], [field]: value };
       return updated;
     });
+  };
+
+  const uploadImageToS3 = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to upload image');
+    }
+
+    const data = await response.json();
+    return data.url;
   };
 
   const handleSaveQuestion = async (index: number) => {
@@ -133,7 +180,10 @@ const QuestionsPage: React.FC = () => {
       const response = await fetch(`/api/trial-tests/${id}/questions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...question, creatorId: 1 }),
+        body: JSON.stringify({ 
+          ...question,
+          creatorId: 1 
+        }),
       });
 
       if (!response.ok) {

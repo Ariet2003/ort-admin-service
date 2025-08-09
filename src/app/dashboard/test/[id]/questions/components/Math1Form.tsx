@@ -31,6 +31,23 @@ const Math1Form: React.FC<Math1FormProps> = ({ question, index, handleQuestionCh
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [isAiProcessingColumnA, setIsAiProcessingColumnA] = useState(false);
   const [isAiProcessingColumnB, setIsAiProcessingColumnB] = useState(false);
+  // Функция для загрузки изображения в S3
+  const uploadImageToS3 = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to upload image');
+    }
+
+    const data = await response.json();
+    return data.url;
+  };
 
   const handleAiFormat = async (field: 'questionText' | 'optionA' | 'optionB') => {
     const setProcessingState = {
@@ -76,6 +93,7 @@ const Math1Form: React.FC<Math1FormProps> = ({ question, index, handleQuestionCh
 
   return (
     <>
+
       {/* Текст вопроса */}
       <div className="relative group/field">
         <label className="block text-[#667177] text-xs mb-2 group-hover/field:text-[#00ff41] transition-colors duration-200">

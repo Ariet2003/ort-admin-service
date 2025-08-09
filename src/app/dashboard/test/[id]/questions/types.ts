@@ -2,6 +2,7 @@ export interface Question {
   id?: number;
   questionText: string;
   imageUrl?: string;
+  imageFile?: File;  // Временное хранение файла до загрузки
   optionA: string;
   optionB: string;
   optionC: string;
