@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserRole } from '@prisma/client';
+type Language = 'KYRGYZ' | 'RUSSIAN';
 import Image from 'next/image';
 
 interface User {
@@ -12,6 +13,7 @@ interface User {
   telegramId: string | null;
   points: number;
   role: UserRole;
+  language: Language;
   avatarUrl: string | null;
   createdAt: string;
   updatedAt: string;
@@ -33,15 +35,21 @@ const UserIcon = ({ className = "" }) => (
 
 const roleLabels: Record<UserRole, string> = {
   ADMIN: 'Администратор',
-  MANAGER: 'Менеджер',
-  TRAINER: 'Преподаватель',
   STUDENT: 'Ученик',
+};
+
+const languageLabels: Record<Language, string> = {
+  KYRGYZ: 'Кыргызский',
+  RUSSIAN: 'Русский',
+};
+
+const languageColors: Record<Language, string> = {
+  KYRGYZ: 'text-blue-400',
+  RUSSIAN: 'text-purple-400',
 };
 
 const roleColors: Record<UserRole, string> = {
   ADMIN: 'text-red-400',
-  MANAGER: 'text-blue-400',
-  TRAINER: 'text-yellow-400',
   STUDENT: 'text-green-400',
 };
 
@@ -72,10 +80,10 @@ export default function UserDetailsModal({ isOpen, onClose, onEdit, onDelete, us
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           onClick={e => e.stopPropagation()}
-          className="bg-[#19242a] rounded-lg w-full max-w-md p-6 space-y-6"
+          className="bg-[#19242a] rounded-lg w-full max-w-xl p-6 space-y-6"
         >
-          <div className="flex flex-col items-center">
-            <div className="relative w-24 h-24 rounded-full overflow-hidden bg-[#161b1e] border border-[#667177]/20 mb-4">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="relative w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-[#00ff41]/20 to-[#19242a] border-2 border-[#00ff41]/20 shadow-lg shadow-[#00ff41]/5">
               {user.avatarUrl ? (
                 <Image
                   src={user.avatarUrl}
@@ -85,47 +93,96 @@ export default function UserDetailsModal({ isOpen, onClose, onEdit, onDelete, us
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <UserIcon className="w-12 h-12 text-[#667177]" />
+                  <UserIcon className="w-8 h-8 text-[#00ff41]/40" />
                 </div>
               )}
             </div>
-            <h2 className="text-xl font-bold text-white text-center">
-              {user.fullname}
-            </h2>
-            <span className={`${roleColors[user.role]} text-sm mt-1`}>
-              {roleLabels[user.role]}
-            </span>
+            <div className="flex-1">
+              <h2 className="text-xl font-bold text-white mb-1">
+                {user.fullname}
+              </h2>
+              <div className="flex items-center gap-2">
+                <span className={`${roleColors[user.role]} text-sm px-2 py-0.5 rounded-full bg-[#161b1e] border border-[#667177]/10`}>
+                  {roleLabels[user.role]}
+                </span>
+                <span className={`${languageColors[user.language]} text-sm px-2 py-0.5 rounded-full bg-[#161b1e] border border-[#667177]/10`}>
+                  {languageLabels[user.language]}
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm text-[#667177]">Логин</p>
-              <p className="text-white">{user.username}</p>
+          <div className="bg-[#161b1e] rounded-xl border border-[#667177]/10 overflow-hidden">
+            {/* Статусная информация */}
+            <div className="grid grid-cols-3 divide-x divide-[#667177]/10">
+              <div className="p-3 text-center">
+                <p className="text-sm text-[#667177] mb-1">Роль</p>
+                <p className={`text-base font-medium ${roleColors[user.role]}`}>
+                  {roleLabels[user.role]}
+                </p>
+              </div>
+              <div className="p-3 text-center">
+                <p className="text-sm text-[#667177] mb-1">Язык</p>
+                <p className={`text-base font-medium ${languageColors[user.language]}`}>
+                  {languageLabels[user.language]}
+                </p>
+              </div>
+              <div className="p-3 text-center">
+                <p className="text-sm text-[#667177] mb-1">Баллы</p>
+                <div className="flex items-center justify-center gap-1">
+                  <svg className="w-4 h-4 text-[#00ff41]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                  <p className="text-base font-medium text-[#00ff41]">{user.points}</p>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <p className="text-sm text-[#667177]">Телефон</p>
-              <p className="text-white">{user.phoneNumber || '—'}</p>
-            </div>
+            {/* Основная информация */}
+            <div className="p-6 space-y-2">
+              {/* Контактная информация */}
+              <div>
+                <h3 className="text-sm font-medium text-[#00ff41] uppercase tracking-wider mb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Контактная информация
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-2 bg-[#19242a] rounded-lg border border-[#667177]/10 hover:border-[#00ff41]/20 transition-colors">
+                    <p className="text-sm text-[#667177] mb-1">Логин</p>
+                    <p className="text-white">{user.username}</p>
+                  </div>
+                  <div className="p-2 bg-[#19242a] rounded-lg border border-[#667177]/10 hover:border-[#00ff41]/20 transition-colors">
+                    <p className="text-sm text-[#667177] mb-1">Телефон</p>
+                    <p className="text-white">{user.phoneNumber || '—'}</p>
+                  </div>
+                  <div className="col-span-2 p-2 bg-[#19242a] rounded-lg border border-[#667177]/10 hover:border-[#00ff41]/20 transition-colors">
+                    <p className="text-sm text-[#667177] mb-1">Telegram ID</p>
+                    <p className="text-white">{user.telegramId || '—'}</p>
+                  </div>
+                </div>
+              </div>
 
-            <div>
-              <p className="text-sm text-[#667177]">Telegram ID</p>
-              <p className="text-white">{user.telegramId || '—'}</p>
-            </div>
-
-            <div>
-              <p className="text-sm text-[#667177]">Баллы</p>
-              <p className="text-white">{user.points}</p>
-            </div>
-
-            <div>
-              <p className="text-sm text-[#667177]">Дата регистрации</p>
-              <p className="text-white">{formatDate(user.createdAt)}</p>
-            </div>
-
-            <div>
-              <p className="text-sm text-[#667177]">Последнее обновление</p>
-              <p className="text-white">{formatDate(user.updatedAt)}</p>
+              {/* Временная информация */}
+              <div>
+                <h3 className="text-sm font-medium text-[#00ff41] uppercase tracking-wider mb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Временная информация
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-2 bg-[#19242a] rounded-lg border border-[#667177]/10 hover:border-[#00ff41]/20 transition-colors">
+                    <p className="text-sm text-[#667177] mb-1">Дата регистрации</p>
+                    <p className="text-white">{formatDate(user.createdAt)}</p>
+                  </div>
+                  <div className="p-2 bg-[#19242a] rounded-lg border border-[#667177]/10 hover:border-[#00ff41]/20 transition-colors">
+                    <p className="text-sm text-[#667177] mb-1">Последнее обновление</p>
+                    <p className="text-white">{formatDate(user.updatedAt)}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

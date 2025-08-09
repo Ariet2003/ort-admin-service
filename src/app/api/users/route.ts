@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient, Prisma } from '@prisma/client';
-import type { UserRole } from '@prisma/client';
+import type { UserRole, Language } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -9,8 +9,11 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
     const role = searchParams.get('role');
+    const language = searchParams.get('language');
     // Проверяем, что роль может быть только ADMIN или STUDENT
     const validRole = role === 'ADMIN' || role === 'STUDENT' ? role as UserRole : null;
+    // Проверяем, что язык может быть только KYRGYZ или RUSSIAN
+    const validLanguage = language === 'KYRGYZ' || language === 'RUSSIAN' ? language as Language : null;
     const sortBy = searchParams.get('sortBy');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
@@ -28,6 +31,8 @@ export async function GET(request: Request) {
         } : {},
         // Фильтр по роли
         validRole ? { role: validRole } : {},
+        // Фильтр по языку
+        validLanguage ? { language: validLanguage } : {},
       ],
     };
 
@@ -63,6 +68,7 @@ export async function GET(request: Request) {
         telegramId: true,
         points: true,
         role: true,
+        language: true,
         avatarUrl: true,
         createdAt: true,
         updatedAt: true,
@@ -117,6 +123,7 @@ export async function POST(request: Request) {
         telegramId: true,
         points: true,
         role: true,
+        language: true,
         avatarUrl: true,
         createdAt: true,
         updatedAt: true,

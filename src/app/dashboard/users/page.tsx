@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserRole } from '@prisma/client';
+
+type Language = 'KYRGYZ' | 'RUSSIAN';
 import Image from 'next/image';
 import UserModal from '@/components/UserModal';
 import UserDetailsModal from '@/components/UserDetailsModal';
@@ -16,6 +18,7 @@ interface User {
   telegramId: string | null;
   points: number;
   role: UserRole;
+  language: Language;
   avatarUrl: string | null;
   createdAt: string;
   updatedAt: string;
@@ -33,9 +36,19 @@ const roleLabels: Record<UserRole, string> = {
   STUDENT: 'Ученик',
 };
 
+const languageLabels: Record<Language, string> = {
+  KYRGYZ: 'Кыргызский',
+  RUSSIAN: 'Русский',
+};
+
 const roleColors: Record<UserRole, string> = {
   ADMIN: 'text-red-400',
   STUDENT: 'text-green-400',
+};
+
+const languageColors: Record<Language, string> = {
+  KYRGYZ: 'text-blue-400',
+  RUSSIAN: 'text-purple-400',
 };
 
 const EditIcon = ({ className = "" }) => (
@@ -80,6 +93,7 @@ export default function UsersPage() {
   });
   const [search, setSearch] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
+  const [selectedLanguage, setSelectedLanguage] = useState<Language | ''>('');
   const [sortBy, setSortBy] = useState<SortOption>('fullname_asc');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -102,6 +116,7 @@ export default function UsersPage() {
 
       if (search) searchParams.set('search', search);
       if (selectedRole) searchParams.set('role', selectedRole);
+      if (selectedLanguage) searchParams.set('language', selectedLanguage);
 
       const response = await fetch(`/api/users?${searchParams}`);
       const data = await response.json();
@@ -121,7 +136,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, [pagination.page, search, selectedRole, sortBy]);
+  }, [pagination.page, search, selectedRole, selectedLanguage, sortBy]);
 
   const handleDelete = async (user: User) => {
     setDeletingUser(user);
@@ -321,6 +336,19 @@ export default function UsersPage() {
             </option>
           ))}
         </select>
+
+        <select
+          value={selectedLanguage}
+          onChange={(e) => setSelectedLanguage(e.target.value as Language | '')}
+          className="px-4 py-2 rounded-lg border border-[#667177] bg-[#19242a] text-white text-xs focus:outline-none focus:ring-2 focus:ring-[#00ff41] focus:border-[#00ff41]"
+        >
+          <option value="">Все языки</option>
+          {Object.entries(languageLabels).map(([lang, label]) => (
+            <option key={lang} value={lang}>
+              {label}
+            </option>
+          ))}
+        </select>
         <button
           className={`px-4 py-2 rounded-lg border border-[#667177] bg-[#19242a] text-white text-xs 
             hover:bg-[#161b1e] hover:scale-[1.02] hover:shadow-lg hover:shadow-[#667177]/20
@@ -352,6 +380,7 @@ export default function UsersPage() {
                 <th className="px-4 py-3 text-left text-sm font-medium text-[#667177]">Логин</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-[#667177]">Телефон</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-[#667177]">Роль</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-[#667177]">Язык</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-[#667177]">Баллы</th>
                 <th className="px-4 py-3 w-20 text-right text-sm font-medium text-[#667177]">Действия</th>
               </tr>
@@ -385,6 +414,11 @@ export default function UsersPage() {
                   <td className="px-4 py-3 text-sm">
                     <span className={`${roleColors[user.role]}`}>
                       {roleLabels[user.role]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className={`${languageColors[user.language]}`}>
+                      {languageLabels[user.language]}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-white">{user.points}</td>
